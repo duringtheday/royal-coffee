@@ -36,7 +36,7 @@ export default defineConfig({
               .child(S.documentTypeList('gallery').title('Gallery')),
           ]),
     }),
-    // visionTool(),
+    visionTool(),
   ],
   schema: { types: schemaTypes },
 })
