@@ -1,12 +1,14 @@
 /** @type {import('next').NextConfig} */
+const isGithubPages = process.env.GITHUB_PAGES === 'true'
+
 const nextConfig = {
-  output: 'export',
+  ...(isGithubPages && { output: 'export' }),
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  basePath: process.env.GITHUB_PAGES === 'true' ? '/royal-coffee' : '',
-  assetPrefix: process.env.GITHUB_PAGES === 'true' ? '/royal-coffee/' : '',
+  basePath: isGithubPages ? '/royal-coffee' : '',
+  assetPrefix: isGithubPages ? '/royal-coffee/' : '',
 }
 
 module.exports = nextConfig
