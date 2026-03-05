@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { client, SETTINGS_QUERY } from '@/lib/sanity'
 import type { SiteSettings } from '@/lib/types'
-import type { SectionId } from '@/app/page'
+import type { SectionId } from '@/lib/sections'
 
 interface Props { onNavigate: (id: SectionId) => void }
 

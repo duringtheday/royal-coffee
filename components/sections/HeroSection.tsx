@@ -1,6 +1,6 @@
 'use client'
 import Image from 'next/image'
-import type { SectionId } from '@/app/page'
+import type { SectionId } from '@/lib/sections'
 
 interface Props { onNavigate: (id: SectionId) => void }
 

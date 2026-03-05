@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { client, PRODUCTS_QUERY, CATEGORIES_QUERY } from '@/lib/sanity'
 import { useCart } from '@/lib/store'
 import type { Product, Category } from '@/lib/types'
-import type { SectionId } from '@/app/page'
+import type { SectionId } from '@/lib/sections'
 
 // Fallback demo data when Sanity is not yet connected
 const DEMO_PRODUCTS: Product[] = [

@@ -1,6 +1,6 @@
 'use client'
 import Image from 'next/image'
-import type { SectionId } from '@/app/page'
+import type { SectionId } from '@/lib/sections'
 
 const stats = [
   { value: '2019', label: 'Est.' },

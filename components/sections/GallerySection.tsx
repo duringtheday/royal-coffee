@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { Play, X } from 'lucide-react'
 import { client, GALLERY_QUERY } from '@/lib/sanity'
 import type { GalleryItem } from '@/lib/types'
-import type { SectionId } from '@/app/page'
+import type { SectionId } from '@/lib/sections'
 
 const DEMO: GalleryItem[] = [
   { _id: 'g1', title: 'The Craft', mediaType: 'photo', photo: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&q=80' },

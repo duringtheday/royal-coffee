@@ -11,16 +11,7 @@ import AboutSection from '@/components/sections/AboutSection'
 import LocationSection from '@/components/sections/LocationSection'
 import ContactSection from '@/components/sections/ContactSection'
 
-export type SectionId = 'hero' | 'menu' | 'gallery' | 'about' | 'location' | 'contact'
-
-export const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: 'hero', label: 'Home' },
-  { id: 'menu', label: 'Menu' },
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'about', label: 'Our Story' },
-  { id: 'location', label: 'Find Us' },
-  { id: 'contact', label: 'Connect' },
-]
+import { type SectionId, SECTIONS } from '@/lib/sections'
 
 const sectionComponents: Record<SectionId, React.ComponentType<{ onNavigate: (id: SectionId) => void }>> = {
   hero: HeroSection,

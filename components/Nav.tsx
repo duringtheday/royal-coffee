@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import { ShoppingBag } from 'lucide-react'
 import { useCart } from '@/lib/store'
-import type { SectionId } from '@/app/page'
-import { SECTIONS } from '@/app/page'
+import { type SectionId, SECTIONS } from '@/lib/sections'
 import Image from 'next/image'
 
 interface NavProps {
