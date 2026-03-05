@@ -1,0 +1,445 @@
+[
+  {
+    "fields": [
+      {
+        "initialValue": "Royal Coffee & Tea",
+        "name": "businessName",
+        "type": "string"
+      },
+      {
+        "initialValue": "Where every cup tells a story.",
+        "name": "tagline",
+        "type": "string"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "logo",
+        "type": "image"
+      },
+      {
+        "rows": 6,
+        "name": "about",
+        "type": "text",
+        "title": "About / Story Text"
+      },
+      {
+        "initialValue": "0969077311",
+        "name": "phone1",
+        "type": "string",
+        "title": "Phone Number 1"
+      },
+      {
+        "initialValue": "017824500",
+        "name": "phone2",
+        "type": "string",
+        "title": "Phone Number 2"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "title": "Email Address"
+      },
+      {
+        "initialValue": "Street 9, Pub Street Area, Siem Reap, Cambodia",
+        "name": "address",
+        "type": "string"
+      },
+      {
+        "initialValue": "7:00 AM – 10:00 PM",
+        "name": "hoursWeekday",
+        "type": "string",
+        "title": "Hours — Monday to Friday"
+      },
+      {
+        "initialValue": "7:00 AM – 11:00 PM",
+        "name": "hoursWeekend",
+        "type": "string",
+        "title": "Hours — Saturday & Sunday"
+      },
+      {
+        "description": "With country code, no spaces. e.g. 85596907731",
+        "name": "whatsapp",
+        "type": "string",
+        "title": "WhatsApp Number"
+      },
+      {
+        "description": "Without @. e.g. royalcoffeekh",
+        "name": "telegram",
+        "type": "string",
+        "title": "Telegram Username"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "instagram",
+        "type": "url",
+        "title": "Instagram URL"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "facebook",
+        "type": "url",
+        "title": "Facebook URL"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "tiktok",
+        "type": "url",
+        "title": "TikTok URL"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "Go to Google Maps → Share → Embed a map → copy the src URL only",
+        "name": "mapEmbedUrl",
+        "type": "url",
+        "title": "Google Maps Embed URL"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "For the \"Get Directions\" button",
+        "name": "googleMapsLink",
+        "type": "url",
+        "title": "Google Maps Direct Link"
+      },
+      {
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "name",
+                "type": "string",
+                "title": "Payment Name"
+              },
+              {
+                "name": "abbreviation",
+                "type": "string"
+              },
+              {
+                "initialValue": true,
+                "name": "active",
+                "type": "boolean"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "payments",
+        "type": "array",
+        "title": "Accepted Payment Methods"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "heroImage",
+        "type": "image",
+        "title": "Hero Background Image (optional)"
+      }
+    ],
+    "name": "siteSettings",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Category Name"
+      },
+      {
+        "description": "e.g. ☕ ❄ 🍃 🥐",
+        "name": "emoji",
+        "type": "string",
+        "title": "Emoji Icon"
+      },
+      {
+        "name": "order",
+        "type": "number",
+        "title": "Display Order"
+      }
+    ],
+    "name": "category",
+    "type": "document",
+    "title": "Categories"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Product Name"
+      },
+      {
+        "rows": 3,
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              },
+              {
+                "flag": "min",
+                "constraint": 0
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "price",
+        "type": "number",
+        "title": "Price (USD)"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "to": [
+          {
+            "type": "category"
+          }
+        ],
+        "name": "category",
+        "type": "reference"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "image",
+        "type": "image",
+        "title": "Product Image"
+      },
+      {
+        "description": "e.g. \"New\", \"Popular\", \"Limited\", \"House Special\"",
+        "name": "badge",
+        "type": "string",
+        "title": "Badge Label (optional)"
+      },
+      {
+        "initialValue": true,
+        "description": "Uncheck to hide this product without deleting it",
+        "name": "available",
+        "type": "boolean"
+      },
+      {
+        "description": "Lower number = shown first",
+        "name": "order",
+        "type": "number",
+        "title": "Display Order"
+      }
+    ],
+    "name": "product",
+    "type": "document",
+    "title": "Products & Services"
+  },
+  {
+    "fields": [
+      {
+        "name": "title",
+        "type": "string",
+        "title": "Title / Caption"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Photo",
+              "value": "photo"
+            },
+            {
+              "title": "Video",
+              "value": "video"
+            }
+          ],
+          "layout": "radio"
+        },
+        "initialValue": "photo",
+        "name": "mediaType",
+        "type": "string"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "hidden": "conditional",
+        "name": "photo",
+        "type": "image"
+      },
+      {
+        "options": {
+          "accept": "video/*"
+        },
+        "hidden": "conditional",
+        "name": "video",
+        "type": "file",
+        "title": "Video File"
+      },
+      {
+        "description": "Drag to reorder in the gallery",
+        "name": "order",
+        "type": "number",
+        "title": "Display Order"
+      }
+    ],
+    "name": "gallery",
+    "type": "document"
+  }
+]
