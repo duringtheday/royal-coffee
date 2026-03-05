@@ -1,14 +1,12 @@
 /** @type {import('next').NextConfig} */
-const isProd = process.env.NODE_ENV === 'production'
-
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  basePath: isProd ? '/royal-coffee' : '',
-  assetPrefix: isProd ? '/royal-coffee/' : '',
+  basePath: process.env.GITHUB_PAGES === 'true' ? '/royal-coffee' : '',
+  assetPrefix: process.env.GITHUB_PAGES === 'true' ? '/royal-coffee/' : '',
 }
 
 module.exports = nextConfig
