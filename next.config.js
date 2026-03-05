@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
+  trailingSlash: true,
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'cdn.sanity.io' },
-      { protocol: 'https', hostname: 'images.unsplash.com' },
-    ],
+    unoptimized: true,
   },
+  basePath: '/royal-coffee',
+  assetPrefix: '/royal-coffee/',
 }
 
 module.exports = nextConfig

@@ -2,13 +2,13 @@
   "name": "royal-coffee",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "deploy": "gh-pages -d out"
-  },
+"scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint",
+  "deploy": "next build && gh-pages -d out"
+},
   "dependencies": {
     "@sanity/client": "^6.29.1",
     "@sanity/image-url": "^1.2.0",
