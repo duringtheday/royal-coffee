@@ -1,0 +1,229 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #c9922a;
+  --gold-light: #e4af2e;
+  --gold-dark: #a87020;
+  --obsidian: #0a0a0a;
+  --charcoal: #141414;
+  --smoke: #1e1e1e;
+  --cream: #f5f0e8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { overflow: hidden; height: 100%; }
+
+body {
+  background: var(--obsidian);
+  color: var(--cream);
+  font-family: 'Outfit', sans-serif;
+  height: 100%;
+  overflow: hidden;
+  cursor: none;
+}
+
+/* ── Custom Cursor ───────────────────────── */
+.cursor-dot {
+  width: 10px; height: 10px;
+  background: var(--gold);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: width .2s, height .2s, background .2s;
+}
+.cursor-ring {
+  width: 34px; height: 34px;
+  border: 1px solid rgba(201,146,42,.4);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: width .3s, height .3s, border-color .3s;
+}
+@media (hover: none) {
+  .cursor-dot, .cursor-ring { display: none; }
+  body, * { cursor: auto !important; }
+}
+
+/* ── Full Screen Page Container ─────────── */
+.page-container {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-dark) var(--obsidian);
+}
+.page-container::-webkit-scrollbar { width: 3px; }
+.page-container::-webkit-scrollbar-track { background: var(--obsidian); }
+.page-container::-webkit-scrollbar-thumb { background: var(--gold-dark); border-radius: 2px; }
+
+/* ── Gold Shimmer Text ───────────────────── */
+.gold-shimmer {
+  background: linear-gradient(90deg, #a87020 0%, #e4af2e 30%, #f2d98a 50%, #e4af2e 70%, #a87020 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+
+/* ── Gold Divider ────────────────────────── */
+.gold-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+/* ── Grain Overlay ───────────────────────── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9990; opacity: .03;
+  animation: grain .4s steps(1) infinite;
+}
+@keyframes grain {
+  0%,100% { transform: translate(0,0); }
+  25% { transform: translate(-1%,2%); }
+  50% { transform: translate(2%,-1%); }
+  75% { transform: translate(-2%,1%); }
+}
+
+/* ── Buttons ─────────────────────────────── */
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
+  background-size: 200% auto;
+  color: var(--obsidian);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  transition: background-position .4s, transform .2s, box-shadow .3s;
+  cursor: none;
+  border: none;
+}
+.btn-gold:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(201,146,42,.35);
+}
+.btn-outline {
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  background: transparent;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: all .3s;
+  cursor: none;
+}
+.btn-outline:hover {
+  background: var(--gold);
+  color: var(--obsidian);
+  box-shadow: 0 0 20px rgba(201,146,42,.3);
+}
+
+/* ── Cards ───────────────────────────────── */
+.card {
+  background: var(--charcoal);
+  border: 1px solid rgba(255,255,255,.06);
+  transition: border-color .4s, box-shadow .4s;
+}
+.card:hover {
+  border-color: rgba(201,146,42,.4);
+  box-shadow: 0 0 30px rgba(201,146,42,.1);
+}
+.card .card-img {
+  transition: transform .6s ease;
+}
+.card:hover .card-img {
+  transform: scale(1.05);
+}
+
+/* ── Category Pills ──────────────────────── */
+.pill {
+  border: 1px solid rgba(201,146,42,.2);
+  color: rgba(245,240,232,.5);
+  transition: all .3s;
+  cursor: none;
+  font-family: 'Outfit', sans-serif;
+}
+.pill:hover, .pill.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(201,146,42,.08);
+  box-shadow: 0 0 12px rgba(201,146,42,.15);
+}
+
+/* ── Nav Dots ────────────────────────────── */
+.dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(201,146,42,.25);
+  transition: all .3s;
+  cursor: none;
+}
+.dot.active {
+  background: var(--gold);
+  height: 20px;
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(201,146,42,.5);
+}
+
+/* ── Social Links ────────────────────────── */
+.social-card {
+  background: var(--charcoal);
+  border: 1px solid rgba(201,146,42,.1);
+  transition: all .3s;
+}
+.social-card:hover {
+  border-color: rgba(201,146,42,.4);
+  background: rgba(201,146,42,.06);
+  transform: translateY(-3px);
+}
+
+/* ── Float Animation ─────────────────────── */
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.float { animation: float 5s ease-in-out infinite; }
+
+/* ── Fade Up ─────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp .8s ease forwards; }
+.fade-up-1 { animation: fadeUp .8s .1s ease both; }
+.fade-up-2 { animation: fadeUp .8s .2s ease both; }
+.fade-up-3 { animation: fadeUp .8s .3s ease both; }
+.fade-up-4 { animation: fadeUp .8s .4s ease both; }
+.fade-up-5 { animation: fadeUp .8s .5s ease both; }
+
+/* ── Page Transition Overlay ─────────────── */
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--obsidian);
+  z-index: 8000;
+  pointer-events: none;
+}
+
+/* ── Cart Panel ──────────────────────────── */
+.cart-panel {
+  background: rgba(16,16,16,.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
