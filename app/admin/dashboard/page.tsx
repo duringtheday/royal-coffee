@@ -49,7 +49,7 @@ export default function AdminDashboard() {
         client.fetch(`*[_type == "category"] | order(order asc){ _id, name, emoji }`),
         client.fetch(`*[_type == "siteSettings"][0]`),
         client.fetch(`*[_type == "gallery"] | order(order asc){ _id, title, mediaType, "photo": photo.asset->url }`),
-        client.fetch(`*[_type == "order"] | order(createdAt desc){ _id, orderNumber, customerName, customerContact, source, sector, items, total, status, notes, createdAt }`),
+        client.fetch(`*[_type == "order"] | order(createdAt desc){ _id, orderNumber, customerName, customerContact, source, orderType, location, items, total, status, notes, createdAt }`),
         client.fetch(`*[_type == "note"] | order(createdAt desc){ _id, content, type, amount, sector, createdAt }`),
       ])
       setProducts(prods || [])
@@ -420,17 +420,24 @@ function OrderModal({ order, products, onClose, onSave }: any) {
           )}
         </div>
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Sector</label>
-          <select value={form.sector || ''} onChange={e => f('sector', e.target.value)}
-            style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
-            <option value=''>Select sector</option>
-            <option value='dinein'>🪑 Dine-in</option>
-            <option value='takeaway'>🥡 Takeaway</option>
-            <option value='delivery'>🛵 Delivery</option>
-            <option value='online'>💻 Online</option>
-            <option value='phone'>📞 Phone</option>
-          </select>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Order Type</label>
+            <select value={form.orderType || ''} onChange={e => f('orderType', e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
+              <option value=''>Select type</option>
+              <option value='dinein'>🪑 Dine-in</option>
+              <option value='takeaway'>🥡 Takeaway</option>
+              <option value='delivery'>🛵 Delivery</option>
+              <option value='online'>💻 Online</option>
+              <option value='phone'>📞 Phone</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Location</label>
+            <input type="text" value={form.location || ''} onChange={e => f('location', e.target.value)} placeholder="e.g. Pub Street, Siem Reap"
+              style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+          </div>
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
@@ -657,15 +664,37 @@ function AccountingTab({ orders, notes }: any) {
   const totalExpenses = (notes || []).filter((n: any) => n.type === 'expense').reduce((s: number, n: any) => s + (n.amount || 0), 0)
   const netRevenue = totalRevenue - totalRefunded
 
-  const sectorStats = confirmed.reduce((acc: any, o: any) => {
-    const s = o.sector || 'unknown'
+  const orderTypeStats = confirmed.reduce((acc: any, o: any) => {
+    const s = o.orderType || 'unknown'
     if (!acc[s]) acc[s] = { count: 0, total: 0 }
     acc[s].count++
     acc[s].total += o.total || 0
     return acc
   }, {})
 
-  const sectorLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone', unknown: '❓ Unknown' }
+  const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone', unknown: '❓ Unknown' }
+
+  const locationStats = confirmed.reduce((acc: any, o: any) => {
+    const l = o.location?.trim()
+    if (!l) return acc
+    if (!acc[l]) acc[l] = { count: 0, total: 0 }
+    acc[l].count++
+    acc[l].total += o.total || 0
+    return acc
+  }, {})
+
+  const topProducts = confirmed.reduce((acc: any, o: any) => {
+    o.items?.forEach((item: any) => {
+      if (!item.productName) return
+      if (!acc[item.productName]) acc[item.productName] = { count: 0, total: 0 }
+      acc[item.productName].count += item.quantity || 1
+      acc[item.productName].total += item.subtotal || 0
+    })
+    return acc
+  }, {})
+
+  const topLocationsSorted = Object.entries(locationStats).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10)
+  const topProductsSorted = Object.entries(topProducts).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10)
 
   const exportAccountingPDF = async () => {
     const { default: jsPDF } = await import('jspdf')
@@ -758,15 +787,55 @@ function AccountingTab({ orders, notes }: any) {
         {stat('Total Orders', `${filteredOrders.length}`, 'all statuses')}
       </div>
 
-      {Object.keys(sectorStats).length > 0 && (
+      {Object.keys(orderTypeStats).length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Sales by Sector</h3>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Sales by Order Type</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '0.75rem' }}>
-            {Object.entries(sectorStats).map(([sector, data]: any) => (
-              <div key={sector} style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.1)', borderRadius: '0.75rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(201,146,42,0.6)', marginBottom: '0.4rem' }}>{sectorLabels[sector] || sector}</div>
+            {Object.entries(orderTypeStats).map(([type, data]: any) => (
+              <div key={type} style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.1)', borderRadius: '0.75rem', padding: '1rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(201,146,42,0.6)', marginBottom: '0.4rem' }}>{orderTypeLabels[type] || type}</div>
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', color: '#c9922a' }}>${data.total.toFixed(2)}</div>
                 <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topLocationsSorted.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>📍 Top Locations</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {topLocationsSorted.map(([location, data]: any, i: number) => (
+              <div key={location} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.75rem 1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.3)' }}>#{i + 1}</span>
+                  <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{location}</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topProductsSorted.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>☕ Top Products</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {topProductsSorted.map(([product, data]: any, i: number) => (
+              <div key={product} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.75rem 1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.3)' }}>#{i + 1}</span>
+                  <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{product}</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} sold</div>
+                </div>
               </div>
             ))}
           </div>
@@ -783,7 +852,8 @@ function AccountingTab({ orders, notes }: any) {
               <div>
                 <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
                 {o.orderNumber && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.4)', marginLeft: '0.75rem' }}>{o.orderNumber}</span>}
-                {o.sector && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{sectorLabels[o.sector]}</span>}
+                {o.orderType && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{orderTypeLabels[o.orderType]}</span>}
+                {o.location && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.5)', marginLeft: '0.75rem' }}>📍 {o.location}</span>}
                 <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

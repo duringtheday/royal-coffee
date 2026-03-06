@@ -71,8 +71,8 @@ export const order = defineType({
       },
     }),
     defineField({
-      name: 'sector',
-      title: 'Sector',
+      name: 'orderType',
+      title: 'Order Type',
       type: 'string',
       options: {
         list: [
@@ -83,6 +83,12 @@ export const order = defineType({
           { title: '📞 Phone', value: 'phone' },
         ],
       },
+    }),
+    defineField({
+      name: 'location',
+      title: 'Customer Location',
+      type: 'string',
+      description: 'e.g. Pub Street, Siem Reap',
     }),
     defineField({
       name: 'notes',
