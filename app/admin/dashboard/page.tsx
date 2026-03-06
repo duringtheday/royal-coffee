@@ -626,54 +626,175 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
   )
 }
 
-function AccountingTab({ orders }: any) {
-  const confirmed = orders.filter((o: any) => o.status === 'confirmed')
-  const cancelled = orders.filter((o: any) => o.status === 'cancelled')
-  const refunded = orders.filter((o: any) => o.status === 'refunded')
+function AccountingTab({ orders, notes }: any) {
+  const [filterDate, setFilterDate] = useState('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [cleanLimit, setCleanLimit] = useState(200)
+  const [showCleanConfig, setShowCleanConfig] = useState(false)
 
   const now = new Date()
   const todayStr = now.toDateString()
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-  const totalRevenue = confirmed.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
-  const todayRevenue = confirmed.filter((o: any) => new Date(o.createdAt).toDateString() === todayStr).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
-  const weekRevenue = confirmed.filter((o: any) => new Date(o.createdAt) >= weekAgo).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
-  const monthRevenue = confirmed.filter((o: any) => new Date(o.createdAt) >= monthAgo).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
-  const totalRefunded = refunded.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+  const filteredOrders = orders.filter((o: any) => {
+    const d = new Date(o.createdAt)
+    if (filterDate === 'today') return d.toDateString() === todayStr
+    if (filterDate === 'week') return d >= weekAgo
+    if (filterDate === 'month') return d >= monthAgo
+    if (filterDate === 'custom' && customFrom) return d >= new Date(customFrom) && (!customTo || d <= new Date(customTo + 'T23:59:59'))
+    return true
+  })
 
-  const stat = (label: string, value: string, sub?: string) => (
+  const confirmed = filteredOrders.filter((o: any) => o.status === 'confirmed')
+  const cancelled = filteredOrders.filter((o: any) => o.status === 'cancelled')
+  const refunded = filteredOrders.filter((o: any) => o.status === 'refunded')
+  const pending = filteredOrders.filter((o: any) => o.status === 'pending')
+
+  const totalRevenue = confirmed.reduce((s: number, o: any) => s + (o.total || 0), 0)
+  const totalRefunded = refunded.reduce((s: number, o: any) => s + (o.total || 0), 0)
+  const totalExpenses = (notes || []).filter((n: any) => n.type === 'expense').reduce((s: number, n: any) => s + (n.amount || 0), 0)
+  const netRevenue = totalRevenue - totalRefunded
+
+  const sectorStats = confirmed.reduce((acc: any, o: any) => {
+    const s = o.sector || 'unknown'
+    if (!acc[s]) acc[s] = { count: 0, total: 0 }
+    acc[s].count++
+    acc[s].total += o.total || 0
+    return acc
+  }, {})
+
+  const sectorLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone', unknown: '❓ Unknown' }
+
+  const exportAccountingPDF = async () => {
+    const { default: jsPDF } = await import('jspdf')
+    const { default: autoTable } = await import('jspdf-autotable')
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('Royal Coffee & Tea — Financial Report', 14, 20)
+    doc.setFontSize(10)
+    doc.text(`Generated: ${new Date().toLocaleString()} · Period: ${filterDate === 'all' ? 'All Time' : filterDate}`, 14, 28)
+    doc.text(`Total Revenue: $${totalRevenue.toFixed(2)} | Refunded: $${totalRefunded.toFixed(2)} | Net: $${netRevenue.toFixed(2)}`, 14, 35)
+    autoTable(doc, {
+      startY: 42,
+      head: [['Order #', 'Customer', 'Sector', 'Items', 'Total', 'Status', 'Date']],
+      body: filteredOrders.map((o: any) => [
+        o.orderNumber || '-',
+        o.customerName || '-',
+        sectorLabels[o.sector] || '-',
+        o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-',
+        `$${Number(o.total || 0).toFixed(2)}`,
+        o.status,
+        new Date(o.createdAt).toLocaleDateString(),
+      ]),
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [26, 26, 26] },
+    })
+    doc.save(`royal-coffee-accounting-${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
+  const stat = (label: string, value: string, sub?: string, color?: string) => (
     <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '1rem', padding: '1.5rem', textAlign: 'center' }}>
       <div style={{ fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.5rem' }}>{label}</div>
-      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: '#c9922a', fontWeight: 600 }}>{value}</div>
+      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: color || '#c9922a', fontWeight: 600 }}>{value}</div>
       {sub && <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginTop: '0.25rem' }}>{sub}</div>}
     </div>
   )
 
   return (
     <div>
-      <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, marginBottom: '1.5rem' }}>Accounting</h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px,1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        {stat('Today', `$${todayRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt).toDateString() === todayStr).length} orders`)}
-        {stat('This Week', `$${weekRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt) >= weekAgo).length} orders`)}
-        {stat('This Month', `$${monthRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt) >= monthAgo).length} orders`)}
-        {stat('All Time', `$${totalRevenue.toFixed(2)}`, `${confirmed.length} orders`)}
-        {stat('Refunded', `-$${totalRefunded.toFixed(2)}`, `${refunded.length} orders`)}
-        {stat('Cancelled', `${cancelled.length}`, 'orders not counted')}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Accounting & History</h2>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={() => setShowCleanConfig(!showCleanConfig)} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.75rem', cursor: 'pointer' }}>⚙️ Clean Settings</button>
+          <button onClick={exportAccountingPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
+        </div>
       </div>
 
-      <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Recent Confirmed Sales</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {confirmed.slice(0, 20).map((o: any) => (
-          <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem' }}>
-            <div>
-              <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
-              <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleDateString()}</span>
-            </div>
-            <span style={{ color: '#c9922a', fontWeight: 600 }}>${Number(o.total).toFixed(2)}</span>
+      {showCleanConfig && (
+        <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>⚙️ Cleanup Settings</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.5)' }}>Show cleanup warning when orders exceed:</span>
+            <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={50} max={1000}
+              style={{ width: '80px', padding: '0.5rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
+            <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.5)' }}>orders</span>
           </div>
+        </div>
+      )}
+
+      {orders.length >= cleanLimit && (
+        <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.85rem', color: '#f87171' }}>⚠️ You have {orders.length} orders. Export a PDF backup before cleaning history.</span>
+          <button onClick={exportAccountingPDF} style={{ padding: '0.5rem 1.2rem', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export First</button>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {['all', 'today', 'week', 'month', 'custom'].map(d => (
+          <button key={d} onClick={() => setFilterDate(d)} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
+            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom'}
+          </button>
         ))}
+      </div>
+
+      {filterDate === 'custom' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+          <span style={{ color: 'rgba(245,240,232,0.3)', fontSize: '0.8rem' }}>to</span>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        {stat('Revenue', `$${totalRevenue.toFixed(2)}`, `${confirmed.length} confirmed`, '#34d399')}
+        {stat('Refunded', `-$${totalRefunded.toFixed(2)}`, `${refunded.length} orders`, '#f87171')}
+        {stat('Net Revenue', `$${netRevenue.toFixed(2)}`, 'after refunds', '#c9922a')}
+        {stat('Pending', `${pending.length}`, 'awaiting confirmation')}
+        {stat('Cancelled', `${cancelled.length}`, 'not counted')}
+        {stat('Total Orders', `${filteredOrders.length}`, 'all statuses')}
+      </div>
+
+      {Object.keys(sectorStats).length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Sales by Sector</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '0.75rem' }}>
+            {Object.entries(sectorStats).map(([sector, data]: any) => (
+              <div key={sector} style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.1)', borderRadius: '0.75rem', padding: '1rem', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(201,146,42,0.6)', marginBottom: '0.4rem' }}>{sectorLabels[sector] || sector}</div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', color: '#c9922a' }}>${data.total.toFixed(2)}</div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Full History</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {filteredOrders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No orders in this period.</div>
+        ) : (
+          filteredOrders.map((o: any) => (
+            <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
+                {o.orderNumber && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.4)', marginLeft: '0.75rem' }}>{o.orderNumber}</span>}
+                {o.sector && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{sectorLabels[o.sector]}</span>}
+                <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '2rem', background: o.status === 'confirmed' ? 'rgba(52,211,153,0.15)' : o.status === 'cancelled' ? 'rgba(248,113,113,0.15)' : o.status === 'refunded' ? 'rgba(201,146,42,0.15)' : 'rgba(251,191,36,0.15)', color: o.status === 'confirmed' ? '#34d399' : o.status === 'cancelled' ? '#f87171' : o.status === 'refunded' ? '#c9922a' : '#fbbf24' }}>
+                  {o.status}
+                </span>
+                <span style={{ color: o.status === 'confirmed' ? '#34d399' : o.status === 'refunded' ? '#f87171' : 'rgba(245,240,232,0.4)', fontWeight: 600 }}>${Number(o.total || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )
