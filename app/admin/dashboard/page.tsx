@@ -404,6 +404,12 @@ function OrderModal({ order, products, onClose, onSave }: any) {
 }
 
 function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }: any) {
+  const [page, setPage] = useState(1)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterSource, setFilterSource] = useState('all')
+  const [search, setSearch] = useState('')
+  const PER_PAGE = 50
+
   const statusColor: any = {
     pending: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', label: '🟡 Pending' },
     confirmed: { bg: 'rgba(52,211,153,0.15)', color: '#34d399', label: '✅ Confirmed' },
@@ -412,20 +418,97 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
     refunded: { bg: 'rgba(201,146,42,0.15)', color: '#c9922a', label: '💰 Refunded' },
   }
 
+  const filtered = orders.filter((o: any) => {
+    if (filterStatus !== 'all' && o.status !== filterStatus) return false
+    if (filterSource !== 'all' && o.source !== filterSource) return false
+    if (search && !o.customerName?.toLowerCase().includes(search.toLowerCase()) && !o.customerContact?.includes(search)) return false
+    return true
+  })
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE)
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const exportPDF = () => {
+    const win = window.open('', '_blank')
+    if (!win) return
+    const rows = filtered.map((o: any) => `
+      <tr>
+        <td>${o.orderNumber || '-'}</td>
+        <td>${o.customerName || '-'}</td>
+        <td>${o.source || '-'}</td>
+        <td>${o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-'}</td>
+        <td>$${Number(o.total || 0).toFixed(2)}</td>
+        <td>${statusColor[o.status]?.label || o.status}</td>
+        <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+      </tr>
+    `).join('')
+    win.document.write(`
+      <html><head><title>Orders Report — Royal Coffee</title>
+      <style>
+        body { font-family: Georgia, serif; padding: 2rem; color: #1a1a1a; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+        p { color: #666; margin-bottom: 1.5rem; font-size: 0.85rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        th { background: #1a1a1a; color: #fff; padding: 0.6rem 0.75rem; text-align: left; }
+        td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #eee; }
+        tr:nth-child(even) td { background: #f9f9f9; }
+        .total { margin-top: 1.5rem; font-size: 1rem; font-weight: bold; }
+      </style></head><body>
+      <h1>👑 Royal Coffee & Tea — Orders Report</h1>
+      <p>Generated: ${new Date().toLocaleString()} · Total orders: ${filtered.length} · Showing: ${filterStatus === 'all' ? 'All statuses' : filterStatus}</p>
+      <table>
+        <thead><tr><th>#</th><th>Customer</th><th>Source</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="total">Total Revenue (confirmed only): $${filtered.filter((o:any) => o.status === 'confirmed').reduce((s:number,o:any) => s + (o.total||0), 0).toFixed(2)}</p>
+      </body></html>
+    `)
+    win.document.close()
+    win.print()
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Orders</h2>
-        <button onClick={onNewOrder} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '2rem', color: '#0a0a0a', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.1em' }}>
-          + New Order
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button onClick={exportPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
+          <button onClick={onNewOrder} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '2rem', color: '#0a0a0a', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>+ New Order</button>
+        </div>
       </div>
 
-      {orders.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>No orders yet.</div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <input placeholder="Search customer..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          style={{ flex: 1, minWidth: '150px', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }} />
+        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
+          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+          <option value="all">All Statuses</option>
+          <option value="pending">🟡 Pending</option>
+          <option value="confirmed">✅ Confirmed</option>
+          <option value="modified">🔄 Modified</option>
+          <option value="cancelled">❌ Cancelled</option>
+          <option value="refunded">💰 Refunded</option>
+        </select>
+        <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setPage(1) }}
+          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+          <option value="all">All Sources</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="telegram">Telegram</option>
+          <option value="inperson">In Person</option>
+          <option value="online">Online</option>
+          <option value="phone">Phone</option>
+        </select>
+      </div>
+
+      <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', marginBottom: '1rem' }}>
+        Showing {paginated.length} of {filtered.length} orders
+      </div>
+
+      {paginated.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>No orders found.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {orders.map((o: any) => (
+          {paginated.map((o: any) => (
             <div key={o._id} style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
@@ -436,6 +519,7 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
                     </span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.35)', marginBottom: '0.5rem' }}>
+                    {o.orderNumber && <span style={{ marginRight: '1rem', color: 'rgba(201,146,42,0.5)' }}>{o.orderNumber}</span>}
                     {o.source && <span style={{ marginRight: '1rem' }}>📱 {o.source}</span>}
                     {o.customerContact && <span style={{ marginRight: '1rem' }}>📞 {o.customerContact}</span>}
                     <span>🕐 {new Date(o.createdAt).toLocaleString()}</span>
@@ -447,6 +531,7 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
                       ))}
                     </div>
                   )}
+                  {o.notes && <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', marginTop: '0.3rem', fontStyle: 'italic' }}>📝 {o.notes}</div>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ color: '#c9922a', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.75rem' }}>${Number(o.total || 0).toFixed(2)}</div>
@@ -466,6 +551,16 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>← Prev</button>
+          <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)' }}>Page {page} of {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>Next →</button>
         </div>
       )}
     </div>
