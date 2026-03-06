@@ -140,6 +140,13 @@ export default function AdminDashboard() {
                     setOrders(o => o.map(x => x._id === id ? { ...x, status } : x))
                     showMsg(status === 'confirmed' ? '✅ Order confirmed!' : status === 'cancelled' ? '❌ Order cancelled.' : '✅ Status updated.')
                   }}
+                  onClearArchived={async () => {
+                    if (!confirm('Delete all cancelled orders permanently? This cannot be undone.')) return
+                    const cancelled = orders.filter((o: any) => o.status === 'cancelled')
+                    await Promise.all(cancelled.map((o: any) => client.delete(o._id)))
+                    setOrders(o => o.filter((x: any) => x.status !== 'cancelled'))
+                    showMsg('🗑️ Cancelled orders cleared.')
+                  }}
                 />
               )}
 
@@ -403,10 +410,11 @@ function OrderModal({ order, products, onClose, onSave }: any) {
   )
 }
 
-function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }: any) {
+function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, onClearArchived }: any) {
   const [page, setPage] = useState(1)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSource, setFilterSource] = useState('all')
+  const [filterDate, setFilterDate] = useState('all')
   const [search, setSearch] = useState('')
   const PER_PAGE = 50
 
@@ -418,10 +426,14 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
     refunded: { bg: 'rgba(201,146,42,0.15)', color: '#c9922a', label: '💰 Refunded' },
   }
 
+  const now = new Date()
   const filtered = orders.filter((o: any) => {
     if (filterStatus !== 'all' && o.status !== filterStatus) return false
     if (filterSource !== 'all' && o.source !== filterSource) return false
     if (search && !o.customerName?.toLowerCase().includes(search.toLowerCase()) && !o.customerContact?.includes(search)) return false
+    if (filterDate === 'today' && new Date(o.createdAt).toDateString() !== now.toDateString()) return false
+    if (filterDate === 'week' && new Date(o.createdAt) < new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)) return false
+    if (filterDate === 'month' && new Date(o.createdAt) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)) return false
     return true
   })
 
@@ -498,6 +510,14 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
           <option value="online">Online</option>
           <option value="phone">Phone</option>
         </select>
+        <select value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1) }}
+          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+        <button onClick={onClearArchived} style={{ padding: '0.6rem 1rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>🗑️ Clear Cancelled</button>
       </div>
 
       <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', marginBottom: '1rem' }}>
@@ -536,16 +556,21 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ color: '#c9922a', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.75rem' }}>${Number(o.total || 0).toFixed(2)}</div>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {o.status === 'pending' && (
-                      <button onClick={() => onStatusChange(o._id, 'confirmed')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: '0.5rem', color: '#34d399', fontSize: '0.7rem', cursor: 'pointer' }}>Confirm</button>
-                    )}
-                    {(o.status === 'pending' || o.status === 'confirmed') && (
-                      <button onClick={() => onStatusChange(o._id, 'cancelled')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer' }}>Cancel</button>
+                    {o.status !== 'confirmed' && o.status !== 'refunded' && (
+                      <button onClick={() => onStatusChange(o._id, 'confirmed')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: '0.5rem', color: '#34d399', fontSize: '0.7rem', cursor: 'pointer' }}>✅ Confirm</button>
                     )}
                     {o.status === 'confirmed' && (
-                      <button onClick={() => onStatusChange(o._id, 'refunded')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>Refund</button>
+                      <button onClick={() => onStatusChange(o._id, 'pending')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#fbbf24', fontSize: '0.7rem', cursor: 'pointer' }}>↩ Undo</button>
                     )}
-                    <button onClick={() => onEditOrder(o)} style={{ padding: '0.4rem 0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.7rem', cursor: 'pointer' }}>✏️ Edit</button>
+                    {o.status !== 'cancelled' && o.status !== 'refunded' && (
+                      <button onClick={() => onStatusChange(o._id, 'cancelled')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer' }}>❌ Cancel</button>
+                    )}
+                    {o.status === 'cancelled' && (
+                      <button onClick={() => onStatusChange(o._id, 'pending')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#fbbf24', fontSize: '0.7rem', cursor: 'pointer' }}>↩ Restore</button>
+                    )}
+                    {o.status === 'confirmed' && (
+                      <button onClick={() => onStatusChange(o._id, 'refunded')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>💰 Refund</button>
+                    )}
                   </div>
                 </div>
               </div>
