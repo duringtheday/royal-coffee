@@ -37,6 +37,10 @@ export default defineConfig({
             S.listItem()
              .title('🧾 Orders')
              .child(S.documentTypeList('order').title('Orders')),
+            S.divider(),
+            S.listItem()
+             .title('📝 Owner Notes')
+             .child(S.documentTypeList('note').title('Owner Notes')),
           ]),
     }),
   ],

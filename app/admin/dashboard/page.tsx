@@ -12,12 +12,13 @@ const client = createClient({
   token: process.env.NEXT_PUBLIC_SANITY_TOKEN,
 })
 
-type Tab = 'products' | 'orders' | 'accounting' | 'settings' | 'gallery'
+type Tab = 'products' | 'orders' | 'accounting' | 'notes' | 'settings' | 'gallery'
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
   { id: 'products', label: 'Products', icon: '☕' },
   { id: 'orders', label: 'Orders', icon: '🧾' },
   { id: 'accounting', label: 'Accounting', icon: '💰' },
+  { id: 'notes', label: 'Owner Log', icon: '📝' },
   { id: 'settings', label: 'Site Settings', icon: '⚙️' },
   { id: 'gallery', label: 'Gallery', icon: '📸' },
 ]
@@ -35,6 +36,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<any[]>([])
   const [editOrder, setEditOrder] = useState<any>(null)
   const [showNewOrder, setShowNewOrder] = useState(false)
+  const [notes, setNotes] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => { loadAll() }, [])
@@ -42,18 +44,20 @@ export default function AdminDashboard() {
   const loadAll = async () => {
     setLoading(true)
     try {
-      const [prods, cats, sett, gall, ords] = await Promise.all([
+      const [prods, cats, sett, gall, ords, nts] = await Promise.all([
         client.fetch(`*[_type == "product"] | order(order asc){ _id, name, description, price, badge, available, order, "image": image.asset->url, "categoryId": category._ref }`),
         client.fetch(`*[_type == "category"] | order(order asc){ _id, name, emoji }`),
         client.fetch(`*[_type == "siteSettings"][0]`),
         client.fetch(`*[_type == "gallery"] | order(order asc){ _id, title, mediaType, "photo": photo.asset->url }`),
-        client.fetch(`*[_type == "order"] | order(createdAt desc){ _id, orderNumber, customerName, customerContact, source, items, total, status, notes, createdAt }`),
+        client.fetch(`*[_type == "order"] | order(createdAt desc){ _id, orderNumber, customerName, customerContact, source, sector, items, total, status, notes, createdAt }`),
+        client.fetch(`*[_type == "note"] | order(createdAt desc){ _id, content, type, amount, sector, createdAt }`),
       ])
       setProducts(prods || [])
       setCategories(cats || [])
       setSettings(sett || {})
       setGallery(gall || [])
       setOrders(ords || [])
+      setNotes(nts || [])
     } catch (e) {
       setMsg('⚠️ Could not load data. Check Sanity token.')
     }
@@ -151,7 +155,26 @@ export default function AdminDashboard() {
               )}
 
               {tab === 'accounting' && (
-                <AccountingTab orders={orders} />
+                <AccountingTab orders={orders} notes={notes} />
+              )}
+
+              {tab === 'notes' && (
+                <NotesTab
+                  notes={notes}
+                  onSave={async (data: any) => {
+                    try {
+                      const created = await client.create({ _type: 'note', ...data, createdAt: data.createdAt || new Date().toISOString() })
+                      setNotes(n => [{ ...data, _id: created._id }, ...n])
+                      showMsg('✅ Note saved!')
+                    } catch { showMsg('❌ Error saving note.') }
+                  }}
+                  onDelete={async (id: string) => {
+                    if (!confirm('Delete this note?')) return
+                    await client.delete(id)
+                    setNotes(n => n.filter(x => x._id !== id))
+                    showMsg('🗑️ Note deleted.')
+                  }}
+                />
               )}
               {tab === 'products' && (
                 <div>
@@ -388,6 +411,19 @@ function OrderModal({ order, products, onClose, onSave }: any) {
           {items.length === 0 && (
             <div style={{ textAlign: 'center', padding: '1.5rem', color: 'rgba(245,240,232,0.2)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '0.75rem' }}>No items yet. Click + Add Item</div>
           )}
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Sector</label>
+          <select value={form.sector || ''} onChange={e => f('sector', e.target.value)}
+            style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
+            <option value=''>Select sector</option>
+            <option value='dinein'>🪑 Dine-in</option>
+            <option value='takeaway'>🥡 Takeaway</option>
+            <option value='delivery'>🛵 Delivery</option>
+            <option value='online'>💻 Online</option>
+            <option value='phone'>📞 Phone</option>
+          </select>
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
@@ -696,6 +732,132 @@ function ProductModal({ product, categories, onClose, onSave }: any) {
           <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'rgba(245,240,232,0.5)', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Cancel</button>
           <button onClick={() => onSave(form)} style={{ flex: 2, padding: '0.75rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '0.75rem', color: '#0a0a0a', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Save Product</button>
         </div>
+      </div>
+    </div>
+  )
+}
+function NotesTab({ notes, onSave, onDelete }: any) {
+  const [form, setForm] = useState({ content: '', type: 'observation', amount: '', sector: '', createdAt: '' })
+  const [filterType, setFilterType] = useState('all')
+  const [filterDate, setFilterDate] = useState('all')
+  const f = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+
+  const now = new Date()
+  const filtered = notes.filter((n: any) => {
+    if (filterType !== 'all' && n.type !== filterType) return false
+    if (filterDate === 'today' && new Date(n.createdAt).toDateString() !== now.toDateString()) return false
+    if (filterDate === 'week' && new Date(n.createdAt) < new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)) return false
+    if (filterDate === 'month' && new Date(n.createdAt) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)) return false
+    return true
+  })
+
+  const typeIcon: any = { supplier: '📦', expense: '💸', location: '📍', observation: '📊', reminder: '🔔' }
+  const typeLabel: any = { supplier: 'Supplier', expense: 'Extra Expense', location: 'Location', observation: 'Observation', reminder: 'Reminder' }
+
+  const handleSave = () => {
+    if (!form.content.trim()) return
+    onSave({ ...form, createdAt: form.createdAt || new Date().toISOString(), amount: form.amount ? Number(form.amount) : undefined })
+    setForm({ content: '', type: 'observation', amount: '', sector: '', createdAt: '' })
+  }
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, marginBottom: '1.5rem' }}>Owner Log</h2>
+
+      <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '1rem', padding: '1.5rem', marginBottom: '1.5rem' }}>
+        <h3 style={{ fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1rem', marginTop: 0 }}>New Entry</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Type</label>
+            <select value={form.type} onChange={e => f('type', e.target.value)}
+              style={{ width: '100%', padding: '0.6rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+              <option value='observation'>📊 Observation</option>
+              <option value='supplier'>📦 Supplier</option>
+              <option value='expense'>💸 Extra Expense</option>
+              <option value='location'>📍 Location</option>
+              <option value='reminder'>🔔 Reminder</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Sector (optional)</label>
+            <select value={form.sector} onChange={e => f('sector', e.target.value)}
+              style={{ width: '100%', padding: '0.6rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+              <option value=''>No sector</option>
+              <option value='dinein'>🪑 Dine-in</option>
+              <option value='takeaway'>🥡 Takeaway</option>
+              <option value='delivery'>🛵 Delivery</option>
+              <option value='online'>💻 Online</option>
+              <option value='phone'>📞 Phone</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          {form.type === 'expense' && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Amount (USD)</label>
+              <input type="number" value={form.amount} onChange={e => f('amount', e.target.value)} placeholder="0.00"
+                style={{ width: '100%', padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+            </div>
+          )}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Date & Time (leave empty for now)</label>
+            <input type="datetime-local" value={form.createdAt ? form.createdAt.slice(0,16) : ''} onChange={e => f('createdAt', new Date(e.target.value).toISOString())}
+              style={{ width: '100%', padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box', colorScheme: 'dark' }} />
+          </div>
+        </div>
+        <div style={{ marginBottom: '0.75rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Note *</label>
+          <textarea value={form.content} onChange={e => f('content', e.target.value)} rows={3} placeholder="Write your note here..."
+            style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+        </div>
+        <button onClick={handleSave} style={{ padding: '0.75rem 2rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '2rem', color: '#0a0a0a', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.1em' }}>
+          Save Entry
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+          <option value='all'>All Types</option>
+          <option value='observation'>📊 Observation</option>
+          <option value='supplier'>📦 Supplier</option>
+          <option value='expense'>💸 Extra Expense</option>
+          <option value='location'>📍 Location</option>
+          <option value='reminder'>🔔 Reminder</option>
+        </select>
+        <select value={filterDate} onChange={e => setFilterDate(e.target.value)}
+          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+          <option value='all'>All Time</option>
+          <option value='today'>Today</option>
+          <option value='week'>This Week</option>
+          <option value='month'>This Month</option>
+        </select>
+      </div>
+
+      <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', marginBottom: '1rem' }}>{filtered.length} entries</div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {filtered.map((n: any) => (
+          <div key={n._id} style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '2rem', background: 'rgba(201,146,42,0.1)', color: '#c9922a' }}>
+                    {typeIcon[n.type]} {typeLabel[n.type]}
+                  </span>
+                  {n.sector && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)' }}>{n.sector}</span>}
+                  {n.amount && <span style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 600 }}>-${Number(n.amount).toFixed(2)}</span>}
+                </div>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: '#f5f0e8', lineHeight: 1.6 }}>{n.content}</p>
+                <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>🕐 {new Date(n.createdAt).toLocaleString()}</span>
+              </div>
+              <button onClick={() => onDelete(n._id)} style={{ padding: '0.4rem 0.6rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer', flexShrink: 0 }}>🗑️</button>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No entries yet.</div>
+        )}
       </div>
     </div>
   )
