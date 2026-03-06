@@ -440,43 +440,33 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
   const totalPages = Math.ceil(filtered.length / PER_PAGE)
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
-  const exportPDF = () => {
-    const win = window.open('', '_blank')
-    if (!win) return
-    const rows = filtered.map((o: any) => `
-      <tr>
-        <td>${o.orderNumber || '-'}</td>
-        <td>${o.customerName || '-'}</td>
-        <td>${o.source || '-'}</td>
-        <td>${o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-'}</td>
-        <td>$${Number(o.total || 0).toFixed(2)}</td>
-        <td>${statusColor[o.status]?.label || o.status}</td>
-        <td>${new Date(o.createdAt).toLocaleDateString()}</td>
-      </tr>
-    `).join('')
-    win.document.write(`
-      <html><head><title>Orders Report — Royal Coffee</title>
-      <style>
-        body { font-family: Georgia, serif; padding: 2rem; color: #1a1a1a; }
-        h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
-        p { color: #666; margin-bottom: 1.5rem; font-size: 0.85rem; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-        th { background: #1a1a1a; color: #fff; padding: 0.6rem 0.75rem; text-align: left; }
-        td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #eee; }
-        tr:nth-child(even) td { background: #f9f9f9; }
-        .total { margin-top: 1.5rem; font-size: 1rem; font-weight: bold; }
-      </style></head><body>
-      <h1>👑 Royal Coffee & Tea — Orders Report</h1>
-      <p>Generated: ${new Date().toLocaleString()} · Total orders: ${filtered.length} · Showing: ${filterStatus === 'all' ? 'All statuses' : filterStatus}</p>
-      <table>
-        <thead><tr><th>#</th><th>Customer</th><th>Source</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <p class="total">Total Revenue (confirmed only): $${filtered.filter((o:any) => o.status === 'confirmed').reduce((s:number,o:any) => s + (o.total||0), 0).toFixed(2)}</p>
-      </body></html>
-    `)
-    win.document.close()
-    win.print()
+  const exportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf')
+    const { default: autoTable } = await import('jspdf-autotable')
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('Royal Coffee & Tea — Orders Report', 14, 20)
+    doc.setFontSize(10)
+    doc.text(`Generated: ${new Date().toLocaleString()} · Total: ${filtered.length} orders`, 14, 28)
+    autoTable(doc, {
+      startY: 35,
+      head: [['#', 'Customer', 'Source', 'Items', 'Total', 'Status', 'Date']],
+      body: filtered.map((o: any) => [
+        o.orderNumber || '-',
+        o.customerName || '-',
+        o.source || '-',
+        o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-',
+        `$${Number(o.total || 0).toFixed(2)}`,
+        o.status,
+        new Date(o.createdAt).toLocaleDateString(),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [26, 26, 26] },
+    })
+    const confirmed = filtered.filter((o: any) => o.status === 'confirmed')
+    const revenue = confirmed.reduce((s: number, o: any) => s + (o.total || 0), 0)
+    doc.text(`Total Revenue (confirmed): $${revenue.toFixed(2)}`, 14, (doc as any).lastAutoTable.finalY + 10)
+    doc.save(`royal-coffee-orders-${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
   return (
@@ -571,6 +561,7 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
                     {o.status === 'confirmed' && (
                       <button onClick={() => onStatusChange(o._id, 'refunded')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>💰 Refund</button>
                     )}
+                    <button onClick={() => onEditOrder(o)} style={{ padding: '0.4rem 0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.7rem', cursor: 'pointer' }}>✏️ Edit</button>
                   </div>
                 </div>
               </div>
