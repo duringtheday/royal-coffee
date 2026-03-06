@@ -2,18 +2,17 @@
   "name": "royal-coffee",
   "version": "1.0.0",
   "private": true,
-"scripts": {
-  "dev": "next dev",
-  "studio": "sanity dev --port 3333",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint",
-  "deploy": "set GITHUB_PAGES=true && next build && gh-pages -d out"
-},
+  "scripts": {
+    "dev": "next dev",
+    "studio": "sanity dev --port 3333",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "deploy": "set GITHUB_PAGES=true && next build && gh-pages -d out"
+  },
   "dependencies": {
     "@sanity/client": "^6.29.1",
     "@sanity/image-url": "^1.2.0",
-    "@sanity/vision": "^5.13.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.414.0",
@@ -22,7 +21,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.6.0",
-    "sanity": "^3.67.1",
+    "sanity": "^3.99.0",
     "styled-components": "^6.1.13",
     "tailwind-merge": "^2.4.0",
     "zustand": "^4.5.7"
