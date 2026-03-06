@@ -243,6 +243,31 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {(showNewOrder || editOrder) && (
+        <OrderModal
+          order={editOrder}
+          products={products}
+          onClose={() => { setShowNewOrder(false); setEditOrder(null) }}
+          onSave={async (data: any) => {
+            setSaving(true)
+            try {
+              const orderNumber = `ORD-${Date.now()}`
+              if (editOrder?._id) {
+                await client.patch(editOrder._id).set({ ...data, items: data.items }).commit()
+                setOrders(o => o.map(x => x._id === editOrder._id ? { ...x, ...data } : x))
+              } else {
+                const created = await client.create({ _type: 'order', orderNumber, createdAt: new Date().toISOString(), ...data })
+                setOrders(o => [{ ...data, _id: created._id, orderNumber, createdAt: new Date().toISOString() }, ...o])
+              }
+              showMsg('✅ Order saved!')
+              setShowNewOrder(false)
+              setEditOrder(null)
+            } catch { showMsg('❌ Error saving order.') }
+            setSaving(false)
+          }}
+        />
+      )}
+
       {editProduct && (
         <ProductModal product={editProduct} categories={categories} onClose={() => setEditProduct(null)}
           onSave={async (data: any) => {
@@ -263,6 +288,117 @@ export default function AdminDashboard() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function OrderModal({ order, products, onClose, onSave }: any) {
+  const isNew = !order?._id
+  const [form, setForm] = useState(order || {
+    customerName: '', customerContact: '', source: 'whatsapp', status: 'pending', notes: '', total: 0, items: []
+  })
+  const [items, setItems] = useState<any[]>(order?.items || [])
+  const f = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+
+  const addItem = () => setItems(i => [...i, { productName: '', quantity: 1, unitPrice: 0, subtotal: 0 }])
+  const removeItem = (idx: number) => setItems(i => i.filter((_: any, j: number) => j !== idx))
+  const updateItem = (idx: number, key: string, val: any) => {
+    setItems(prev => prev.map((item: any, j: number) => {
+      if (j !== idx) return item
+      const updated = { ...item, [key]: val }
+      if (key === 'quantity' || key === 'unitPrice') {
+        updated.subtotal = Number(updated.quantity) * Number(updated.unitPrice)
+      }
+      if (key === 'productName') {
+        const product = products.find((p: any) => p.name === val)
+        if (product) { updated.unitPrice = product.price; updated.subtotal = Number(updated.quantity) * product.price }
+      }
+      return updated
+    }))
+  }
+
+  const total = items.reduce((sum: number, i: any) => sum + (i.subtotal || 0), 0)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.2)', borderRadius: '1.5rem', padding: '2rem', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', fontWeight: 400, margin: 0 }}>{isNew ? 'New Order' : 'Edit Order'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,240,232,0.4)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          {[{ key: 'customerName', label: 'Customer Name' }, { key: 'customerContact', label: 'Contact (WhatsApp/Phone)' }].map(field => (
+            <div key={field.key}>
+              <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>{field.label}</label>
+              <input value={form[field.key] || ''} onChange={e => f(field.key, e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Source</label>
+            <select value={form.source || 'whatsapp'} onChange={e => f('source', e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
+              {[['whatsapp','WhatsApp'],['telegram','Telegram'],['inperson','In Person'],['online','Online'],['phone','Phone']].map(([v,l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Status</label>
+            <select value={form.status || 'pending'} onChange={e => f('status', e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
+              {[['pending','🟡 Pending'],['confirmed','✅ Confirmed'],['modified','🔄 Modified'],['cancelled','❌ Cancelled'],['refunded','💰 Refunded']].map(([v,l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <label style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Order Items</label>
+            <button onClick={addItem} style={{ padding: '0.3rem 0.75rem', background: 'rgba(201,146,42,0.1)', border: '1px solid rgba(201,146,42,0.2)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>+ Add Item</button>
+          </div>
+          {items.map((item: any, idx: number) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+              <select value={item.productName || ''} onChange={e => updateItem(idx, 'productName', e.target.value)}
+                style={{ padding: '0.6rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+                <option value=''>Select product</option>
+                {products.map((p: any) => <option key={p._id} value={p.name}>{p.name}</option>)}
+              </select>
+              <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} min={1}
+                style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }} />
+              <div style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.8rem', textAlign: 'center' }}>
+                ${Number(item.subtotal || 0).toFixed(2)}
+              </div>
+              <button onClick={() => removeItem(idx)} style={{ padding: '0.6rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>✕</button>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'rgba(245,240,232,0.2)', fontSize: '0.8rem', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '0.75rem' }}>No items yet. Click + Add Item</div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Notes</label>
+          <textarea value={form.notes || ''} onChange={e => f('notes', e.target.value)} rows={2}
+            style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '1rem', background: 'rgba(201,146,42,0.05)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.75rem' }}>
+          <span style={{ fontSize: '0.85rem', color: 'rgba(245,240,232,0.5)' }}>Order Total</span>
+          <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: '#c9922a', fontWeight: 600 }}>${total.toFixed(2)}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'rgba(245,240,232,0.5)', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Cancel</button>
+          <button onClick={() => onSave({ ...form, items, total })} style={{ flex: 2, padding: '0.75rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '0.75rem', color: '#0a0a0a', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Save Order</button>
+        </div>
+      </div>
     </div>
   )
 }
