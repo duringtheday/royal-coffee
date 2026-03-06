@@ -224,8 +224,7 @@ export default function AdminDashboard() {
             setSaving(true)
             try {
               if (data._id === 'new') {
-                const imageField = data.imageAssetId ? { image: { _type: 'image', asset: { _type: 'reference', _ref: data.imageAssetId } } } : {}
-                const created = await client.create({ _type: 'product', name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, order: products.length, category: { _type: 'reference', _ref: data.categoryId }, ...imageField })
+                const created = await client.create({ _type: 'product', name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, order: products.length, category: { _type: 'reference', _ref: data.categoryId }, ...(data.imageAssetId ? { image: { _type: 'image' as const, asset: { _type: 'reference' as const, _ref: data.imageAssetId } } } : { image: { _type: 'image' as const, asset: { _type: 'reference' as const, _ref: '' } } }) })
                 setProducts(p => [...p, { ...data, _id: created._id }])
               } else {
                 const imageField = data.imageAssetId ? { image: { _type: 'image', asset: { _type: 'reference', _ref: data.imageAssetId } } } : {}
