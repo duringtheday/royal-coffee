@@ -31,8 +31,12 @@ export default defineConfig({
               .title('☕ Products & Services')
               .child(S.documentTypeList('product').title('Products & Services')),
             S.listItem()
-              .title('📸 Gallery')
-              .child(S.documentTypeList('gallery').title('Gallery')),
+             .title('📸 Gallery')
+             .child(S.documentTypeList('gallery').title('Gallery')),
+            S.divider(),
+            S.listItem()
+             .title('🧾 Orders')
+             .child(S.documentTypeList('order').title('Orders')),
           ]),
     }),
   ],

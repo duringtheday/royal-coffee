@@ -12,10 +12,12 @@ const client = createClient({
   token: process.env.NEXT_PUBLIC_SANITY_TOKEN,
 })
 
-type Tab = 'products' | 'settings' | 'gallery'
+type Tab = 'products' | 'orders' | 'accounting' | 'settings' | 'gallery'
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
   { id: 'products', label: 'Products', icon: '☕' },
+  { id: 'orders', label: 'Orders', icon: '🧾' },
+  { id: 'accounting', label: 'Accounting', icon: '💰' },
   { id: 'settings', label: 'Site Settings', icon: '⚙️' },
   { id: 'gallery', label: 'Gallery', icon: '📸' },
 ]
@@ -30,6 +32,9 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [editProduct, setEditProduct] = useState<any>(null)
+  const [orders, setOrders] = useState<any[]>([])
+  const [editOrder, setEditOrder] = useState<any>(null)
+  const [showNewOrder, setShowNewOrder] = useState(false)
   const router = useRouter()
 
   useEffect(() => { loadAll() }, [])
@@ -37,16 +42,18 @@ export default function AdminDashboard() {
   const loadAll = async () => {
     setLoading(true)
     try {
-      const [prods, cats, sett, gall] = await Promise.all([
+      const [prods, cats, sett, gall, ords] = await Promise.all([
         client.fetch(`*[_type == "product"] | order(order asc){ _id, name, description, price, badge, available, order, "image": image.asset->url, "categoryId": category._ref }`),
         client.fetch(`*[_type == "category"] | order(order asc){ _id, name, emoji }`),
         client.fetch(`*[_type == "siteSettings"][0]`),
         client.fetch(`*[_type == "gallery"] | order(order asc){ _id, title, mediaType, "photo": photo.asset->url }`),
+        client.fetch(`*[_type == "order"] | order(createdAt desc){ _id, orderNumber, customerName, customerContact, source, items, total, status, notes, createdAt }`),
       ])
       setProducts(prods || [])
       setCategories(cats || [])
       setSettings(sett || {})
       setGallery(gall || [])
+      setOrders(ords || [])
     } catch (e) {
       setMsg('⚠️ Could not load data. Check Sanity token.')
     }
@@ -121,6 +128,24 @@ export default function AdminDashboard() {
             <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>Loading...</div>
           ) : (
             <>
+            {tab === 'orders' && (
+                <OrdersTab
+                  orders={orders}
+                  categories={categories}
+                  products={products}
+                  onNewOrder={() => setShowNewOrder(true)}
+                  onEditOrder={(o: any) => setEditOrder(o)}
+                  onStatusChange={async (id: string, status: string) => {
+                    await client.patch(id).set({ status }).commit()
+                    setOrders(o => o.map(x => x._id === id ? { ...x, status } : x))
+                    showMsg(status === 'confirmed' ? '✅ Order confirmed!' : status === 'cancelled' ? '❌ Order cancelled.' : '✅ Status updated.')
+                  }}
+                />
+              )}
+
+              {tab === 'accounting' && (
+                <AccountingTab orders={orders} />
+              )}
               {tab === 'products' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -238,6 +263,128 @@ export default function AdminDashboard() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange }: any) {
+  const statusColor: any = {
+    pending: { bg: 'rgba(251,191,36,0.15)', color: '#fbbf24', label: '🟡 Pending' },
+    confirmed: { bg: 'rgba(52,211,153,0.15)', color: '#34d399', label: '✅ Confirmed' },
+    modified: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8', label: '🔄 Modified' },
+    cancelled: { bg: 'rgba(248,113,113,0.15)', color: '#f87171', label: '❌ Cancelled' },
+    refunded: { bg: 'rgba(201,146,42,0.15)', color: '#c9922a', label: '💰 Refunded' },
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Orders</h2>
+        <button onClick={onNewOrder} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '2rem', color: '#0a0a0a', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.1em' }}>
+          + New Order
+        </button>
+      </div>
+
+      {orders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>No orders yet.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {orders.map((o: any) => (
+            <div key={o._id} style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                    <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem' }}>{o.customerName || 'Unknown Customer'}</span>
+                    <span style={{ padding: '0.2rem 0.6rem', borderRadius: '2rem', fontSize: '0.65rem', fontWeight: 700, background: statusColor[o.status]?.bg, color: statusColor[o.status]?.color }}>
+                      {statusColor[o.status]?.label}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.35)', marginBottom: '0.5rem' }}>
+                    {o.source && <span style={{ marginRight: '1rem' }}>📱 {o.source}</span>}
+                    {o.customerContact && <span style={{ marginRight: '1rem' }}>📞 {o.customerContact}</span>}
+                    <span>🕐 {new Date(o.createdAt).toLocaleString()}</span>
+                  </div>
+                  {o.items?.length > 0 && (
+                    <div style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.5)' }}>
+                      {o.items.map((item: any, i: number) => (
+                        <span key={i}>{item.quantity}x {item.productName}{i < o.items.length - 1 ? ', ' : ''}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#c9922a', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.75rem' }}>${Number(o.total || 0).toFixed(2)}</div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {o.status === 'pending' && (
+                      <button onClick={() => onStatusChange(o._id, 'confirmed')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: '0.5rem', color: '#34d399', fontSize: '0.7rem', cursor: 'pointer' }}>Confirm</button>
+                    )}
+                    {(o.status === 'pending' || o.status === 'confirmed') && (
+                      <button onClick={() => onStatusChange(o._id, 'cancelled')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer' }}>Cancel</button>
+                    )}
+                    {o.status === 'confirmed' && (
+                      <button onClick={() => onStatusChange(o._id, 'refunded')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>Refund</button>
+                    )}
+                    <button onClick={() => onEditOrder(o)} style={{ padding: '0.4rem 0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.7rem', cursor: 'pointer' }}>✏️ Edit</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AccountingTab({ orders }: any) {
+  const confirmed = orders.filter((o: any) => o.status === 'confirmed')
+  const cancelled = orders.filter((o: any) => o.status === 'cancelled')
+  const refunded = orders.filter((o: any) => o.status === 'refunded')
+
+  const now = new Date()
+  const todayStr = now.toDateString()
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const totalRevenue = confirmed.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+  const todayRevenue = confirmed.filter((o: any) => new Date(o.createdAt).toDateString() === todayStr).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+  const weekRevenue = confirmed.filter((o: any) => new Date(o.createdAt) >= weekAgo).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+  const monthRevenue = confirmed.filter((o: any) => new Date(o.createdAt) >= monthAgo).reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+  const totalRefunded = refunded.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
+
+  const stat = (label: string, value: string, sub?: string) => (
+    <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '1rem', padding: '1.5rem', textAlign: 'center' }}>
+      <div style={{ fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.5rem' }}>{label}</div>
+      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: '#c9922a', fontWeight: 600 }}>{value}</div>
+      {sub && <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginTop: '0.25rem' }}>{sub}</div>}
+    </div>
+  )
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, marginBottom: '1.5rem' }}>Accounting</h2>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px,1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        {stat('Today', `$${todayRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt).toDateString() === todayStr).length} orders`)}
+        {stat('This Week', `$${weekRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt) >= weekAgo).length} orders`)}
+        {stat('This Month', `$${monthRevenue.toFixed(2)}`, `${confirmed.filter((o: any) => new Date(o.createdAt) >= monthAgo).length} orders`)}
+        {stat('All Time', `$${totalRevenue.toFixed(2)}`, `${confirmed.length} orders`)}
+        {stat('Refunded', `-$${totalRefunded.toFixed(2)}`, `${refunded.length} orders`)}
+        {stat('Cancelled', `${cancelled.length}`, 'orders not counted')}
+      </div>
+
+      <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Recent Confirmed Sales</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {confirmed.slice(0, 20).map((o: any) => (
+          <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem' }}>
+            <div>
+              <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
+              <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleDateString()}</span>
+            </div>
+            <span style={{ color: '#c9922a', fontWeight: 600 }}>${Number(o.total).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
