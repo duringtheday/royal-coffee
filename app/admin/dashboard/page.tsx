@@ -100,7 +100,7 @@ export default function AdminDashboard() {
   const s = (k: string, v: any) => setSettings((prev: any) => ({ ...prev, [k]: v }))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'Outfit, sans-serif', color: '#f5f0e8' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', fontFamily: 'Outfit, sans-serif', color: '#f5f0e8', cursor: 'default' }}>
       <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet" />
 
       <div style={{ background: '#141414', borderBottom: '1px solid rgba(201,146,42,0.15)', padding: '0 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
         <div style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: '#141414', border: '1px solid rgba(201,146,42,0.3)', borderRadius: '2rem', padding: '0.75rem 2rem', fontSize: '0.85rem', zIndex: 9999 }}>{msg}</div>
       )}
 
-      <div style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
+      <div style={{ display: 'flex', height: 'calc(100vh - 64px)', cursor: 'default' }}>
         <div style={{ width: '220px', background: '#0f0f0f', borderRight: '1px solid rgba(201,146,42,0.1)', padding: '1.5rem 1rem', flexShrink: 0 }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', marginBottom: '0.25rem', textAlign: 'left', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', background: tab === t.id ? 'rgba(201,146,42,0.12)' : 'transparent', color: tab === t.id ? '#c9922a' : 'rgba(245,240,232,0.45)', borderLeft: tab === t.id ? '2px solid #c9922a' : '2px solid transparent' }}>
@@ -127,7 +127,7 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', cursor: 'default' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>Loading...</div>
           ) : (
