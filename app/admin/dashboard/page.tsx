@@ -224,10 +224,12 @@ export default function AdminDashboard() {
             setSaving(true)
             try {
               if (data._id === 'new') {
-                const created = await client.create({ _type: 'product', name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, order: products.length, category: { _type: 'reference', _ref: data.categoryId } })
+                const imageField = data.imageAssetId ? { image: { _type: 'image', asset: { _type: 'reference', _ref: data.imageAssetId } } } : {}
+                const created = await client.create({ _type: 'product', name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, order: products.length, category: { _type: 'reference', _ref: data.categoryId }, ...imageField })
                 setProducts(p => [...p, { ...data, _id: created._id }])
               } else {
-                await client.patch(data._id).set({ name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, category: { _type: 'reference', _ref: data.categoryId } }).commit()
+                const imageField = data.imageAssetId ? { image: { _type: 'image', asset: { _type: 'reference', _ref: data.imageAssetId } } } : {}
+                await client.patch(data._id).set({ name: data.name, description: data.description, price: Number(data.price), badge: data.badge || undefined, available: data.available, category: { _type: 'reference', _ref: data.categoryId }, ...imageField }).commit()
                 setProducts(p => p.map(x => x._id === data._id ? { ...x, ...data } : x))
               }
               showMsg('✅ Product saved!')
@@ -269,6 +271,23 @@ function ProductModal({ product, categories, onClose, onSave }: any) {
             )}
           </div>
         ))}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Product Image *</label>
+          <input type="file" accept="image/*" onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            const asset = await client.assets.upload('image', file, { filename: file.name })
+            f('imageAssetId', asset._id)
+            f('imagePreview', URL.createObjectURL(file))
+          }}
+            style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+          {form.imagePreview && (
+            <img src={form.imagePreview} alt="Preview" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
+          )}
+          {form.image && !form.imagePreview && (
+            <img src={form.image} alt="Current" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
+          )}
+        </div>
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Category *</label>
           <select value={form.categoryId || ''} onChange={e => f('categoryId', e.target.value)}
