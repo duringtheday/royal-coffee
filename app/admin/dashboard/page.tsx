@@ -711,7 +711,7 @@ function AccountingTab({ orders, notes }: any) {
       body: filteredOrders.map((o: any) => [
         o.orderNumber || '-',
         o.customerName || '-',
-        sectorLabels[o.sector] || '-',
+        orderTypeLabels[o.orderType] || '-',
         o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-',
         `$${Number(o.total || 0).toFixed(2)}`,
         o.status,
