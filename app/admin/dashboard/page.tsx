@@ -133,7 +133,7 @@ export default function AdminDashboard() {
             <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>Loading...</div>
           ) : (
             <>
-            {tab === 'orders' && (
+              {tab === 'orders' && (
                 <OrdersTab
                   orders={orders}
                   categories={categories}
@@ -384,7 +384,7 @@ function OrderModal({ order, products, onClose, onSave }: any) {
             <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Source</label>
             <select value={form.source || 'whatsapp'} onChange={e => f('source', e.target.value)}
               style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
-              {[['whatsapp','WhatsApp'],['telegram','Telegram'],['inperson','In Person'],['online','Online'],['phone','Phone']].map(([v,l]) => (
+              {[['whatsapp', 'WhatsApp'], ['telegram', 'Telegram'], ['inperson', 'In Person'], ['online', 'Online'], ['phone', 'Phone']].map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
@@ -393,7 +393,7 @@ function OrderModal({ order, products, onClose, onSave }: any) {
             <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Status</label>
             <select value={form.status || 'pending'} onChange={e => f('status', e.target.value)}
               style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
-              {[['pending','🟡 Pending'],['confirmed','✅ Confirmed'],['modified','🔄 Modified'],['cancelled','❌ Cancelled'],['refunded','💰 Refunded']].map(([v,l]) => (
+              {[['pending', '🟡 Pending'], ['confirmed', '✅ Confirmed'], ['modified', '🔄 Modified'], ['cancelled', '❌ Cancelled'], ['refunded', '💰 Refunded']].map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
               ))}
             </select>
@@ -716,17 +716,18 @@ function AccountingTab({ orders }: any) {
         <button onClick={exportPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
       </div>
 
-      {orders.length >= cleanLimit && (
-        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.82rem', color: '#fbbf24' }}>⚠️ You have {orders.length} orders. Consider exporting a backup and cleaning your history.</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>Alert at:</span>
-            <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={10}
-              style={{ width: '65px', padding: '0.35rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
-            <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>orders</span>
-          </div>
+      <div style={{ background: orders.length >= cleanLimit ? 'rgba(251,191,36,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${orders.length >= cleanLimit ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.06)'}`, borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        {orders.length >= cleanLimit
+          ? <span style={{ fontSize: '0.82rem', color: '#fbbf24' }}>⚠️ You have {orders.length} orders. Consider exporting a backup and cleaning your history.</span>
+          : <span style={{ fontSize: '0.82rem', color: 'rgba(245,240,232,0.3)' }}>🗂️ {orders.length} orders total. Alert will show at limit.</span>
+        }
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>Alert at:</span>
+          <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={10}
+            style={{ width: '65px', padding: '0.35rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
+          <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>orders</span>
         </div>
-      )}
+      </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {['all', 'today', 'week', 'month', 'custom'].map(d => (
