@@ -995,10 +995,6 @@ function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any
               ))}
             </div>
           )}
-        </div>
-
-        </div>
-          )}
           {Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE) > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
               <button onClick={() => setActivityPage(p => Math.max(1, p - 1))} disabled={activityPage === 1}
