@@ -152,6 +152,12 @@ export default function AdminDashboard() {
                     setOrders(o => o.filter((x: any) => x.status !== 'cancelled'))
                     showMsg('🗑️ Cancelled orders cleared.')
                   }}
+                  onDeleteOrder={async (id: string) => {
+                    if (!confirm('Delete this order permanently?')) return
+                    await client.delete(id)
+                    setOrders(o => o.filter((x: any) => x._id !== id))
+                    showMsg('🗑️ Order deleted.')
+                  }}
                 />
               )}
 
@@ -465,12 +471,14 @@ function OrderModal({ order, products, onClose, onSave }: any) {
   )
 }
 
-function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, onClearArchived }: any) {
+function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, onClearArchived, onDeleteOrder }: any) {
   const [page, setPage] = useState(1)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSource, setFilterSource] = useState('all')
   const [filterDate, setFilterDate] = useState('all')
   const [search, setSearch] = useState('')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const PER_PAGE = 50
 
   const statusColor: any = {
@@ -489,6 +497,8 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
     if (filterDate === 'today' && new Date(o.createdAt).toDateString() !== now.toDateString()) return false
     if (filterDate === 'week' && new Date(o.createdAt) < new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)) return false
     if (filterDate === 'month' && new Date(o.createdAt) < new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)) return false
+    if (filterDate === 'custom' && customFrom && new Date(o.createdAt) < new Date(customFrom)) return false
+    if (filterDate === 'custom' && customTo && new Date(o.createdAt) > new Date(customTo)) return false
     return true
   })
 
@@ -533,37 +543,48 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
           <button onClick={onNewOrder} style={{ padding: '0.6rem 1.5rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '2rem', color: '#0a0a0a', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>+ New Order</button>
         </div>
       </div>
-
+   
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <input placeholder="Search customer..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-          style={{ flex: 1, minWidth: '150px', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }} />
-        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
-          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
-          <option value="all">All Statuses</option>
-          <option value="pending">🟡 Pending</option>
-          <option value="confirmed">✅ Confirmed</option>
-          <option value="modified">🔄 Modified</option>
-          <option value="cancelled">❌ Cancelled</option>
-          <option value="refunded">💰 Refunded</option>
-        </select>
-        <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setPage(1) }}
-          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
-          <option value="all">All Sources</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="telegram">Telegram</option>
-          <option value="inperson">In Person</option>
-          <option value="online">Online</option>
-          <option value="phone">Phone</option>
-        </select>
-        <select value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1) }}
-          style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
-          <option value="all">All Time</option>
-          <option value="today">Today</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-        </select>
-        <button onClick={onClearArchived} style={{ padding: '0.6rem 1rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>🗑️ Clear Cancelled</button>
-      </div>
+  <input placeholder="Search customer..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+    style={{ flex: 1, minWidth: '150px', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }} />
+  <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
+    style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+    <option value="all">All Statuses</option>
+    <option value="pending">🟡 Pending</option>
+    <option value="confirmed">✅ Confirmed</option>
+    <option value="modified">🔄 Modified</option>
+    <option value="cancelled">❌ Cancelled</option>
+    <option value="refunded">💰 Refunded</option>
+  </select>
+  <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setPage(1) }}
+    style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+    <option value="all">All Sources</option>
+    <option value="whatsapp">WhatsApp</option>
+    <option value="telegram">Telegram</option>
+    <option value="inperson">In Person</option>
+    <option value="online">Online</option>
+    <option value="phone">Phone</option>
+  </select>
+  <select value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1) }}
+    style={{ padding: '0.6rem 1rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif' }}>
+    <option value="all">All Time</option>
+    <option value="today">Today</option>
+    <option value="week">This Week</option>
+    <option value="month">This Month</option>
+    <option value="custom">📅 Custom</option>
+  </select>
+  <button onClick={onClearArchived} style={{ padding: '0.6rem 1rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>🗑️ Clear Cancelled</button>
+</div>
+
+{filterDate === 'custom' && (
+  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+    <input type="datetime-local" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setPage(1) }}
+      style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+    <span style={{ color: 'rgba(245,240,232,0.3)', fontSize: '0.8rem' }}>to</span>
+    <input type="datetime-local" value={customTo} onChange={e => { setCustomTo(e.target.value); setPage(1) }}
+      style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+  </div>
+)}
 
       <div style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)', marginBottom: '1rem' }}>
         Showing {paginated.length} of {filtered.length} orders
@@ -617,6 +638,7 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
                       <button onClick={() => onStatusChange(o._id, 'refunded')} style={{ padding: '0.4rem 0.9rem', background: 'rgba(201,146,42,0.08)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#c9922a', fontSize: '0.7rem', cursor: 'pointer' }}>💰 Refund</button>
                     )}
                     <button onClick={() => onEditOrder(o)} style={{ padding: '0.4rem 0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.7rem', cursor: 'pointer' }}>✏️ Edit</button>
+                    <button onClick={() => onDeleteOrder(o._id)} style={{ padding: '0.4rem 0.9rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.7rem', cursor: 'pointer' }}>🗑️ Delete</button>
                   </div>
                 </div>
               </div>
