@@ -905,6 +905,8 @@ function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any
   const [activeSection, setActiveSection] = useState<'activity' | 'notes'>('activity')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [activityPage, setActivityPage] = useState(1)
+  const ACTIVITY_PER_PAGE = 50
 
   const now = new Date()
 
@@ -977,7 +979,7 @@ function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any
             <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No activity yet.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {activityFeed.map((event: any) => (
+              {activityFeed.slice((activityPage - 1) * ACTIVITY_PER_PAGE, activityPage * ACTIVITY_PER_PAGE).map((event: any) => (
                 <div key={event.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem' }}>
                   <span style={{ fontSize: '1rem', flexShrink: 0 }}>{eventColor[event.type]?.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -991,6 +993,19 @@ function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any
                   {event.amount && <span style={{ color: event.type === 'confirmed' ? '#34d399' : event.type === 'refunded' ? '#f87171' : 'rgba(245,240,232,0.4)', fontWeight: 600, fontSize: '0.9rem', flexShrink: 0 }}>${Number(event.amount).toFixed(2)}</span>}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        </div>
+          )}
+          {Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE) > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+              <button onClick={() => setActivityPage(p => Math.max(1, p - 1))} disabled={activityPage === 1}
+                style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: activityPage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>← Prev</button>
+              <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)' }}>Page {activityPage} of {Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE)}</span>
+              <button onClick={() => setActivityPage(p => Math.min(Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE), p + 1))} disabled={activityPage === Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE)}
+                style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: activityPage === Math.ceil(activityFeed.length / ACTIVITY_PER_PAGE) ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>Next →</button>
             </div>
           )}
         </div>
