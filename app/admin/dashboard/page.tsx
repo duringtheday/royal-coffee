@@ -12,12 +12,13 @@ const client = createClient({
   token: process.env.NEXT_PUBLIC_SANITY_TOKEN,
 })
 
-type Tab = 'products' | 'orders' | 'accounting' | 'notes' | 'settings' | 'gallery'
+type Tab = 'products' | 'orders' | 'accounting' | 'metrics' | 'notes' | 'settings' | 'gallery'
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
   { id: 'products', label: 'Products', icon: '☕' },
   { id: 'orders', label: 'Orders', icon: '🧾' },
   { id: 'accounting', label: 'Accounting', icon: '💰' },
+  { id: 'metrics', label: 'Metrics', icon: '📊' },
   { id: 'notes', label: 'Owner Log', icon: '📝' },
   { id: 'settings', label: 'Site Settings', icon: '⚙️' },
   { id: 'gallery', label: 'Gallery', icon: '📸' },
@@ -155,7 +156,11 @@ export default function AdminDashboard() {
               )}
 
               {tab === 'accounting' && (
-                <AccountingTab orders={orders} notes={notes} />
+                <AccountingTab orders={orders} />
+              )}
+
+              {tab === 'metrics' && (
+                <MetricsTab orders={orders} />
               )}
 
               {tab === 'notes' && (
@@ -638,7 +643,6 @@ function AccountingTab({ orders }: any) {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [cleanLimit, setCleanLimit] = useState(50)
-  const [showCleanConfig, setShowCleanConfig] = useState(false)
   const [page, setPage] = useState(1)
   const PER_PAGE = 50
 
@@ -666,40 +670,6 @@ function AccountingTab({ orders }: any) {
   const netRevenue = totalRevenue - totalRefunded
 
   const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone' }
-
-  const topProducts = confirmed.reduce((acc: any, o: any) => {
-    o.items?.forEach((item: any) => {
-      if (!item.productName) return
-      if (!acc[item.productName]) acc[item.productName] = { count: 0, total: 0 }
-      acc[item.productName].count += item.quantity || 1
-      acc[item.productName].total += item.subtotal || 0
-    })
-    return acc
-  }, {})
-
-  const topLocationStats = confirmed.reduce((acc: any, o: any) => {
-    const l = o.location?.trim()
-    if (!l) return acc
-    if (!acc[l]) acc[l] = { count: 0, total: 0 }
-    acc[l].count++
-    acc[l].total += o.total || 0
-    return acc
-  }, {})
-
-  const topOrderTypeStats = confirmed.reduce((acc: any, o: any) => {
-    const t = o.orderType || 'unknown'
-    if (!acc[t]) acc[t] = { count: 0, total: 0 }
-    acc[t].count++
-    acc[t].total += o.total || 0
-    return acc
-  }, {})
-
-  const topProductsSorted = Object.entries(topProducts).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10)
-  const topLocationsSorted = Object.entries(topLocationStats).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10)
-  const topOrderTypesSorted = Object.entries(topOrderTypeStats).sort((a: any, b: any) => b[1].total - a[1].total)
-
-  const totalPages = Math.ceil(filteredOrders.length / PER_PAGE)
-  const paginatedHistory = filteredOrders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   const exportPDF = async () => {
     const { default: jsPDF } = await import('jspdf')
@@ -736,25 +706,24 @@ function AccountingTab({ orders }: any) {
     </div>
   )
 
+  const totalPages = Math.ceil(filteredOrders.length / PER_PAGE)
+  const paginatedHistory = filteredOrders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Accounting</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={exportPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
-        </div>
+        <button onClick={exportPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
       </div>
 
       {orders.length >= cleanLimit && (
-        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <span style={{ fontSize: '0.82rem', color: '#fbbf24' }}>⚠️ You have {orders.length} orders. Consider exporting a backup and cleaning your history.</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.4)' }}>Alert at:</span>
-              <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={10}
-                style={{ width: '70px', padding: '0.4rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
-              <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.4)' }}>orders</span>
-            </div>
+        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.82rem', color: '#fbbf24' }}>⚠️ You have {orders.length} orders. Consider exporting a backup and cleaning your history.</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>Alert at:</span>
+            <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={10}
+              style={{ width: '65px', padding: '0.35rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
+            <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>orders</span>
           </div>
         </div>
       )}
@@ -762,7 +731,7 @@ function AccountingTab({ orders }: any) {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {['all', 'today', 'week', 'month', 'custom'].map(d => (
           <button key={d} onClick={() => { setFilterDate(d); setPage(1) }} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
-            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom Range'}
+            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom'}
           </button>
         ))}
       </div>
@@ -786,68 +755,6 @@ function AccountingTab({ orders }: any) {
         {stat('Total Orders', `${filteredOrders.length}`, 'all statuses')}
       </div>
 
-      {(topProductsSorted.length > 0 || topLocationsSorted.length > 0 || topOrderTypesSorted.length > 0) && (
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Top Sales</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: '1.5rem' }}>
-
-            {topProductsSorted.length > 0 && (
-              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>☕ Best Selling Products</div>
-                {topProductsSorted.map(([name, data]: any, i: number) => (
-                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
-                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{name}</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>{data.count} sold</div>
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>${data.total.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {topLocationsSorted.length > 0 && (
-              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>📍 Top Locations</div>
-                {topLocationsSorted.map(([location, data]: any, i: number) => (
-                  <div key={location} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
-                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{location}</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {topOrderTypesSorted.length > 0 && (
-              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
-                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>🧾 By Order Type</div>
-                {topOrderTypesSorted.map(([type, data]: any, i: number) => (
-                  <div key={type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
-                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{orderTypeLabels[type] || type}</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, margin: 0 }}>Financial History</h3>
         <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)' }}>{filteredOrders.length} records</span>
@@ -856,29 +763,27 @@ function AccountingTab({ orders }: any) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
         {paginatedHistory.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No records in this period.</div>
-        ) : (
-          paginatedHistory.map((o: any) => (
-            <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div>
-                <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
-                {o.orderNumber && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.4)', marginLeft: '0.75rem' }}>{o.orderNumber}</span>}
-                {o.location && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.5)', marginLeft: '0.75rem' }}>📍 {o.location}</span>}
-                {o.orderType && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{orderTypeLabels[o.orderType]}</span>}
-                <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleString()}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '2rem', background: o.status === 'confirmed' ? 'rgba(52,211,153,0.15)' : o.status === 'cancelled' ? 'rgba(248,113,113,0.15)' : o.status === 'refunded' ? 'rgba(201,146,42,0.15)' : 'rgba(251,191,36,0.15)', color: o.status === 'confirmed' ? '#34d399' : o.status === 'cancelled' ? '#f87171' : o.status === 'refunded' ? '#c9922a' : '#fbbf24' }}>
-                  {o.status}
-                </span>
-                <span style={{ color: o.status === 'confirmed' ? '#34d399' : o.status === 'refunded' ? '#f87171' : 'rgba(245,240,232,0.4)', fontWeight: 600 }}>${Number(o.total || 0).toFixed(2)}</span>
-              </div>
+        ) : paginatedHistory.map((o: any) => (
+          <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
+              {o.orderNumber && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.4)', marginLeft: '0.75rem' }}>{o.orderNumber}</span>}
+              {o.location && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.5)', marginLeft: '0.75rem' }}>📍 {o.location}</span>}
+              {o.orderType && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{orderTypeLabels[o.orderType]}</span>}
+              <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleString()}</span>
             </div>
-          ))
-        )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: '2rem', background: o.status === 'confirmed' ? 'rgba(52,211,153,0.15)' : o.status === 'cancelled' ? 'rgba(248,113,113,0.15)' : o.status === 'refunded' ? 'rgba(201,146,42,0.15)' : 'rgba(251,191,36,0.15)', color: o.status === 'confirmed' ? '#34d399' : o.status === 'cancelled' ? '#f87171' : o.status === 'refunded' ? '#c9922a' : '#fbbf24' }}>
+                {o.status}
+              </span>
+              <span style={{ color: o.status === 'confirmed' ? '#34d399' : o.status === 'refunded' ? '#f87171' : 'rgba(245,240,232,0.4)', fontWeight: 600 }}>${Number(o.total || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
             style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>← Prev</button>
           <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)' }}>Page {page} of {totalPages}</span>
@@ -890,70 +795,6 @@ function AccountingTab({ orders }: any) {
   )
 }
 
-function ProductModal({ product, categories, onClose, onSave }: any) {
-  const [form, setForm] = useState({ ...product })
-  const f = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.2)', borderRadius: '1.5rem', padding: '2rem', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', fontWeight: 400, margin: 0 }}>{form._id === 'new' ? 'Add Product' : 'Edit Product'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,240,232,0.4)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
-        </div>
-        {[
-          { key: 'name', label: 'Product Name *' },
-          { key: 'description', label: 'Description *', multiline: true },
-          { key: 'price', label: 'Price (USD) *', type: 'number' },
-          { key: 'badge', label: 'Badge (optional — e.g. New, Popular)' },
-        ].map((field: any) => (
-          <div key={field.key} style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>{field.label}</label>
-            {field.multiline ? (
-              <textarea value={form[field.key] || ''} onChange={e => f(field.key, e.target.value)} rows={3}
-                style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
-            ) : (
-              <input type={field.type || 'text'} value={form[field.key] || ''} onChange={e => f(field.key, e.target.value)}
-                style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
-            )}
-          </div>
-        ))}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Product Image *</label>
-          <input type="file" accept="image/*" onChange={async (e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            const asset = await client.assets.upload('image', file, { filename: file.name })
-            f('imageAssetId', asset._id)
-            f('imagePreview', URL.createObjectURL(file))
-          }}
-            style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
-          {form.imagePreview && (
-            <img src={form.imagePreview} alt="Preview" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
-          )}
-          {form.image && !form.imagePreview && (
-            <img src={form.image} alt="Current" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
-          )}
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Category *</label>
-          <select value={form.categoryId || ''} onChange={e => f('categoryId', e.target.value)}
-            style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
-            {categories.map((c: any) => <option key={c._id} value={c._id}>{c.emoji} {c.name}</option>)}
-          </select>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <input type="checkbox" id="available" checked={form.available} onChange={e => f('available', e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#c9922a' }} />
-          <label htmlFor="available" style={{ fontSize: '0.85rem', color: 'rgba(245,240,232,0.6)', cursor: 'pointer' }}>Visible on website</label>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'rgba(245,240,232,0.5)', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Cancel</button>
-          <button onClick={() => onSave(form)} style={{ flex: 2, padding: '0.75rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '0.75rem', color: '#0a0a0a', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Save Product</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any) {
   const [content, setContent] = useState('')
   const [filterDate, setFilterDate] = useState('all')
@@ -1074,4 +915,315 @@ function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any
       )}
     </div>
   )
+
+  function MetricsTab({ orders }: any) {
+  const [filterDate, setFilterDate] = useState('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+
+  const now = new Date()
+  const todayStr = now.toDateString()
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const confirmed = orders.filter((o: any) => {
+    if (o.status !== 'confirmed') return false
+    const d = new Date(o.createdAt)
+    if (filterDate === 'today') return d.toDateString() === todayStr
+    if (filterDate === 'week') return d >= weekAgo
+    if (filterDate === 'month') return d >= monthAgo
+    if (filterDate === 'custom' && customFrom) return d >= new Date(customFrom) && (!customTo || d <= new Date(customTo + 'T23:59:59'))
+    return true
+  })
+
+  const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone' }
+
+  const topProducts = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    o.items?.forEach((item: any) => {
+      if (!item.productName) return
+      if (!acc[item.productName]) acc[item.productName] = { count: 0, total: 0 }
+      acc[item.productName].count += item.quantity || 1
+      acc[item.productName].total += item.subtotal || 0
+    })
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10) as any[]
+
+  const topLocations = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    const l = o.location?.trim()
+    if (!l) return acc
+    if (!acc[l]) acc[l] = { count: 0, total: 0 }
+    acc[l].count++
+    acc[l].total += o.total || 0
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10) as any[]
+
+  const topOrderTypes = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    const t = o.orderType || 'unknown'
+    if (!acc[t]) acc[t] = { count: 0, total: 0 }
+    acc[t].count++
+    acc[t].total += o.total || 0
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].total - a[1].total) as any[]
+
+  const maxProduct = topProducts[0]?.[1]?.count || 1
+  const maxLocation = topLocations[0]?.[1]?.total || 1
+  const maxOrderType = topOrderTypes[0]?.[1]?.total || 1
+
+  const Bar = ({ value, max, color }: any) => (
+    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${(value / max) * 100}%`, background: color || '#c9922a', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+    </div>
+  )
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, marginBottom: '1.5rem' }}>Metrics</h2>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {['all', 'today', 'week', 'month', 'custom'].map(d => (
+          <button key={d} onClick={() => setFilterDate(d)} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
+            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom'}
+          </button>
+        ))}
+      </div>
+
+      {filterDate === 'custom' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+          <span style={{ color: 'rgba(245,240,232,0.3)', fontSize: '0.8rem' }}>to</span>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+        </div>
+      )}
+
+      {confirmed.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.2)' }}>No confirmed orders in this period.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px,1fr))', gap: '1.5rem' }}>
+
+          {topProducts.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>☕ Best Selling Products</div>
+              {topProducts.map(([name, data]: any, i: number) => (
+                <div key={name} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>{data.count} sold</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>${data.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <Bar value={data.count} max={maxProduct} color='#c9922a' />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {topLocations.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>📍 Top Locations</div>
+              {topLocations.map(([location, data]: any, i: number) => (
+                <div key={location} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{location}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>{data.count} orders</span>
+                    </div>
+                  </div>
+                  <Bar value={data.total} max={maxLocation} color='#34d399' />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {topOrderTypes.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>🧾 By Order Type</div>
+              {topOrderTypes.map(([type, data]: any, i: number) => (
+                <div key={type} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{orderTypeLabels[type] || type}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>{data.count} orders</span>
+                    </div>
+                  </div>
+                  <Bar value={data.total} max={maxOrderType} color='#818cf8' />
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricsTab({ orders }: any) {
+  const [filterDate, setFilterDate] = useState('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+
+  const now = new Date()
+  const todayStr = now.toDateString()
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const confirmed = orders.filter((o: any) => {
+    if (o.status !== 'confirmed') return false
+    const d = new Date(o.createdAt)
+    if (filterDate === 'today') return d.toDateString() === todayStr
+    if (filterDate === 'week') return d >= weekAgo
+    if (filterDate === 'month') return d >= monthAgo
+    if (filterDate === 'custom' && customFrom) return d >= new Date(customFrom) && (!customTo || d <= new Date(customTo + 'T23:59:59'))
+    return true
+  })
+
+  const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone' }
+
+  const topProducts = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    o.items?.forEach((item: any) => {
+      if (!item.productName) return
+      if (!acc[item.productName]) acc[item.productName] = { count: 0, total: 0 }
+      acc[item.productName].count += item.quantity || 1
+      acc[item.productName].total += item.subtotal || 0
+    })
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10) as any[]
+
+  const topLocations = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    const l = o.location?.trim()
+    if (!l) return acc
+    if (!acc[l]) acc[l] = { count: 0, total: 0 }
+    acc[l].count++
+    acc[l].total += o.total || 0
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10) as any[]
+
+  const topOrderTypes = Object.entries(confirmed.reduce((acc: any, o: any) => {
+    const t = o.orderType || 'unknown'
+    if (!acc[t]) acc[t] = { count: 0, total: 0 }
+    acc[t].count++
+    acc[t].total += o.total || 0
+    return acc
+  }, {})).sort((a: any, b: any) => b[1].total - a[1].total) as any[]
+
+  const maxProduct = topProducts[0]?.[1]?.count || 1
+  const maxLocation = topLocations[0]?.[1]?.total || 1
+  const maxOrderType = topOrderTypes[0]?.[1]?.total || 1
+
+  const Bar = ({ value, max, color }: any) => (
+    <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: `${(value / max) * 100}%`, background: color || '#c9922a', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+    </div>
+  )
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, marginBottom: '1.5rem' }}>Metrics</h2>
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {['all', 'today', 'week', 'month', 'custom'].map(d => (
+          <button key={d} onClick={() => setFilterDate(d)} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
+            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom'}
+          </button>
+        ))}
+      </div>
+
+      {filterDate === 'custom' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+          <span style={{ color: 'rgba(245,240,232,0.3)', fontSize: '0.8rem' }}>to</span>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+            style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', colorScheme: 'dark' }} />
+        </div>
+      )}
+
+      {confirmed.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.2)' }}>No confirmed orders in this period.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px,1fr))', gap: '1.5rem' }}>
+
+          {topProducts.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>☕ Best Selling Products</div>
+              {topProducts.map(([name, data]: any, i: number) => (
+                <div key={name} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>{data.count} sold</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>${data.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <Bar value={data.count} max={maxProduct} color='#c9922a' />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {topLocations.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>📍 Top Locations</div>
+              {topLocations.map(([location, data]: any, i: number) => (
+                <div key={location} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{location}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>{data.count} orders</span>
+                    </div>
+                  </div>
+                  <Bar value={data.total} max={maxLocation} color='#34d399' />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {topOrderTypes.length > 0 && (
+            <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.5rem' }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '1.25rem' }}>🧾 By Order Type</div>
+              {topOrderTypes.map(([type, data]: any, i: number) => (
+                <div key={type} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700, minWidth: '20px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{orderTypeLabels[type] || type}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</span>
+                      <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.5rem' }}>{data.count} orders</span>
+                    </div>
+                  </div>
+                  <Bar value={data.total} max={maxOrderType} color='#818cf8' />
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      )}
+    </div>
+  )
+}
+
 }
