@@ -153,13 +153,6 @@ const [sidebarOpen, setSidebarOpen] = useState(false)
     ))}
   </div>
 </>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', marginBottom: '0.25rem', textAlign: 'left', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', background: tab === t.id ? 'rgba(201,146,42,0.12)' : 'transparent', color: tab === t.id ? '#c9922a' : 'rgba(245,240,232,0.45)', borderLeft: tab === t.id ? '2px solid #c9922a' : '2px solid transparent' }}>
-              <span>{t.icon}</span> {t.label}
-            </button>
-          ))}
-        </div>
-
         <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', cursor: 'default' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(245,240,232,0.3)' }}>Loading...</div>
