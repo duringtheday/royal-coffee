@@ -633,12 +633,14 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
   )
 }
 
-function AccountingTab({ orders, notes }: any) {
+function AccountingTab({ orders }: any) {
   const [filterDate, setFilterDate] = useState('all')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
-  const [cleanLimit, setCleanLimit] = useState(200)
+  const [cleanLimit, setCleanLimit] = useState(50)
   const [showCleanConfig, setShowCleanConfig] = useState(false)
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 50
 
   const now = new Date()
   const todayStr = now.toDateString()
@@ -661,27 +663,9 @@ function AccountingTab({ orders, notes }: any) {
 
   const totalRevenue = confirmed.reduce((s: number, o: any) => s + (o.total || 0), 0)
   const totalRefunded = refunded.reduce((s: number, o: any) => s + (o.total || 0), 0)
-  const totalExpenses = (notes || []).filter((n: any) => n.type === 'expense').reduce((s: number, n: any) => s + (n.amount || 0), 0)
   const netRevenue = totalRevenue - totalRefunded
 
-  const orderTypeStats = confirmed.reduce((acc: any, o: any) => {
-    const s = o.orderType || 'unknown'
-    if (!acc[s]) acc[s] = { count: 0, total: 0 }
-    acc[s].count++
-    acc[s].total += o.total || 0
-    return acc
-  }, {})
-
-  const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone', unknown: '❓ Unknown' }
-
-  const locationStats = confirmed.reduce((acc: any, o: any) => {
-    const l = o.location?.trim()
-    if (!l) return acc
-    if (!acc[l]) acc[l] = { count: 0, total: 0 }
-    acc[l].count++
-    acc[l].total += o.total || 0
-    return acc
-  }, {})
+  const orderTypeLabels: any = { dinein: '🪑 Dine-in', takeaway: '🥡 Takeaway', delivery: '🛵 Delivery', online: '💻 Online', phone: '📞 Phone' }
 
   const topProducts = confirmed.reduce((acc: any, o: any) => {
     o.items?.forEach((item: any) => {
@@ -693,10 +677,31 @@ function AccountingTab({ orders, notes }: any) {
     return acc
   }, {})
 
-  const topLocationsSorted = Object.entries(locationStats).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10)
-  const topProductsSorted = Object.entries(topProducts).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10)
+  const topLocationStats = confirmed.reduce((acc: any, o: any) => {
+    const l = o.location?.trim()
+    if (!l) return acc
+    if (!acc[l]) acc[l] = { count: 0, total: 0 }
+    acc[l].count++
+    acc[l].total += o.total || 0
+    return acc
+  }, {})
 
-  const exportAccountingPDF = async () => {
+  const topOrderTypeStats = confirmed.reduce((acc: any, o: any) => {
+    const t = o.orderType || 'unknown'
+    if (!acc[t]) acc[t] = { count: 0, total: 0 }
+    acc[t].count++
+    acc[t].total += o.total || 0
+    return acc
+  }, {})
+
+  const topProductsSorted = Object.entries(topProducts).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10)
+  const topLocationsSorted = Object.entries(topLocationStats).sort((a: any, b: any) => b[1].total - a[1].total).slice(0, 10)
+  const topOrderTypesSorted = Object.entries(topOrderTypeStats).sort((a: any, b: any) => b[1].total - a[1].total)
+
+  const totalPages = Math.ceil(filteredOrders.length / PER_PAGE)
+  const paginatedHistory = filteredOrders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const exportPDF = async () => {
     const { default: jsPDF } = await import('jspdf')
     const { default: autoTable } = await import('jspdf-autotable')
     const doc = new jsPDF()
@@ -704,15 +709,15 @@ function AccountingTab({ orders, notes }: any) {
     doc.text('Royal Coffee & Tea — Financial Report', 14, 20)
     doc.setFontSize(10)
     doc.text(`Generated: ${new Date().toLocaleString()} · Period: ${filterDate === 'all' ? 'All Time' : filterDate}`, 14, 28)
-    doc.text(`Total Revenue: $${totalRevenue.toFixed(2)} | Refunded: $${totalRefunded.toFixed(2)} | Net: $${netRevenue.toFixed(2)}`, 14, 35)
+    doc.text(`Revenue: $${totalRevenue.toFixed(2)} | Refunded: $${totalRefunded.toFixed(2)} | Net: $${netRevenue.toFixed(2)}`, 14, 35)
     autoTable(doc, {
       startY: 42,
-      head: [['Order #', 'Customer', 'Sector', 'Items', 'Total', 'Status', 'Date']],
+      head: [['Order #', 'Customer', 'Location', 'Type', 'Total', 'Status', 'Date']],
       body: filteredOrders.map((o: any) => [
         o.orderNumber || '-',
         o.customerName || '-',
+        o.location || '-',
         orderTypeLabels[o.orderType] || '-',
-        o.items?.map((i: any) => `${i.quantity}x ${i.productName}`).join(', ') || '-',
         `$${Number(o.total || 0).toFixed(2)}`,
         o.status,
         new Date(o.createdAt).toLocaleDateString(),
@@ -734,36 +739,30 @@ function AccountingTab({ orders, notes }: any) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Accounting & History</h2>
+        <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', fontWeight: 400, margin: 0 }}>Accounting</h2>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={() => setShowCleanConfig(!showCleanConfig)} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.5)', fontSize: '0.75rem', cursor: 'pointer' }}>⚙️ Clean Settings</button>
-          <button onClick={exportAccountingPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
+          <button onClick={exportPDF} style={{ padding: '0.6rem 1.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2rem', color: 'rgba(245,240,232,0.6)', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export PDF</button>
         </div>
       </div>
 
-      {showCleanConfig && (
-        <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>⚙️ Cleanup Settings</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.5)' }}>Show cleanup warning when orders exceed:</span>
-            <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={50} max={1000}
-              style={{ width: '80px', padding: '0.5rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
-            <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.5)' }}>orders</span>
-          </div>
-        </div>
-      )}
-
       {orders.length >= cleanLimit && (
-        <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.85rem', color: '#f87171' }}>⚠️ You have {orders.length} orders. Export a PDF backup before cleaning history.</span>
-          <button onClick={exportAccountingPDF} style={{ padding: '0.5rem 1.2rem', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>📄 Export First</button>
+        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.75rem', padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.82rem', color: '#fbbf24' }}>⚠️ You have {orders.length} orders. Consider exporting a backup and cleaning your history.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.4)' }}>Alert at:</span>
+              <input type="number" value={cleanLimit} onChange={e => setCleanLimit(Number(e.target.value))} min={10}
+                style={{ width: '70px', padding: '0.4rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.8rem', fontFamily: 'Outfit, sans-serif', textAlign: 'center' }} />
+              <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.4)' }}>orders</span>
+            </div>
+          </div>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {['all', 'today', 'week', 'month', 'custom'].map(d => (
-          <button key={d} onClick={() => setFilterDate(d)} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
-            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom'}
+          <button key={d} onClick={() => { setFilterDate(d); setPage(1) }} style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', background: filterDate === d ? 'linear-gradient(135deg,#a87020,#e4af2e)' : 'rgba(255,255,255,0.05)', color: filterDate === d ? '#0a0a0a' : 'rgba(245,240,232,0.5)', fontWeight: filterDate === d ? 700 : 400 }}>
+            {d === 'all' ? 'All Time' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : d === 'month' ? 'This Month' : '📅 Custom Range'}
           </button>
         ))}
       </div>
@@ -787,73 +786,84 @@ function AccountingTab({ orders, notes }: any) {
         {stat('Total Orders', `${filteredOrders.length}`, 'all statuses')}
       </div>
 
-      {Object.keys(orderTypeStats).length > 0 && (
+      {(topProductsSorted.length > 0 || topLocationsSorted.length > 0 || topOrderTypesSorted.length > 0) && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Sales by Order Type</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: '0.75rem' }}>
-            {Object.entries(orderTypeStats).map(([type, data]: any) => (
-              <div key={type} style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.1)', borderRadius: '0.75rem', padding: '1rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(201,146,42,0.6)', marginBottom: '0.4rem' }}>{orderTypeLabels[type] || type}</div>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', color: '#c9922a' }}>${data.total.toFixed(2)}</div>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Top Sales</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: '1.5rem' }}>
+
+            {topProductsSorted.length > 0 && (
+              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
+                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>☕ Best Selling Products</div>
+                {topProductsSorted.map(([name, data]: any, i: number) => (
+                  <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>{data.count} sold</div>
+                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>${data.total.toFixed(2)}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {topLocationsSorted.length > 0 && (
+              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
+                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>📍 Top Locations</div>
+                {topLocationsSorted.map(([location, data]: any, i: number) => (
+                  <div key={location} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{location}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {topOrderTypesSorted.length > 0 && (
+              <div style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1rem', padding: '1.25rem' }}>
+                <div style={{ fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(201,146,42,0.6)', marginBottom: '0.75rem' }}>🧾 By Order Type</div>
+                {topOrderTypesSorted.map(([type, data]: any, i: number) => (
+                  <div key={type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.25)', fontWeight: 700 }}>#{i + 1}</span>
+                      <span style={{ fontSize: '0.82rem', color: '#f5f0e8' }}>{orderTypeLabels[type] || type}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {topLocationsSorted.length > 0 && (
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>📍 Top Locations</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {topLocationsSorted.map(([location, data]: any, i: number) => (
-              <div key={location} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.75rem 1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.3)' }}>#{i + 1}</span>
-                  <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{location}</span>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} orders</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, margin: 0 }}>Financial History</h3>
+        <span style={{ fontSize: '0.75rem', color: 'rgba(245,240,232,0.3)' }}>{filteredOrders.length} records</span>
+      </div>
 
-      {topProductsSorted.length > 0 && (
-        <div style={{ marginBottom: '2rem' }}>
-          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>☕ Top Products</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {topProductsSorted.map(([product, data]: any, i: number) => (
-              <div key={product} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.75rem 1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: i === 0 ? '#e4af2e' : 'rgba(245,240,232,0.3)' }}>#{i + 1}</span>
-                  <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{product}</span>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: '#c9922a', fontWeight: 600 }}>${data.total.toFixed(2)}</div>
-                  <div style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)' }}>{data.count} sold</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', fontWeight: 400, marginBottom: '1rem' }}>Full History</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {filteredOrders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No orders in this period.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        {paginatedHistory.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(245,240,232,0.2)' }}>No records in this period.</div>
         ) : (
-          filteredOrders.map((o: any) => (
+          paginatedHistory.map((o: any) => (
             <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#141414', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '0.75rem', padding: '0.85rem 1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
                 <span style={{ fontSize: '0.85rem', color: '#f5f0e8' }}>{o.customerName || 'Customer'}</span>
                 {o.orderNumber && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.4)', marginLeft: '0.75rem' }}>{o.orderNumber}</span>}
-                {o.orderType && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.3)', marginLeft: '0.75rem' }}>{orderTypeLabels[o.orderType]}</span>}
                 {o.location && <span style={{ fontSize: '0.7rem', color: 'rgba(201,146,42,0.5)', marginLeft: '0.75rem' }}>📍 {o.location}</span>}
+                {o.orderType && <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{orderTypeLabels[o.orderType]}</span>}
                 <span style={{ fontSize: '0.7rem', color: 'rgba(245,240,232,0.25)', marginLeft: '0.75rem' }}>{new Date(o.createdAt).toLocaleString()}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -866,6 +876,16 @@ function AccountingTab({ orders, notes }: any) {
           ))
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>← Prev</button>
+          <span style={{ fontSize: '0.8rem', color: 'rgba(245,240,232,0.4)' }}>Page {page} of {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', color: 'rgba(245,240,232,0.5)', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>Next →</button>
+        </div>
+      )}
     </div>
   )
 }
