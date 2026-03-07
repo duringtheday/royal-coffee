@@ -158,6 +158,14 @@ export default function AdminDashboard() {
                     setOrders(o => o.filter((x: any) => x._id !== id))
                     showMsg('🗑️ Order deleted.')
                   }}
+                  onClearByStatus={async (status: string) => {
+                    const label = status === 'all' ? 'ALL orders' : `all ${status} orders`
+                    if (!confirm(`Delete ${label} permanently? This cannot be undone.`)) return
+                    const toDelete = status === 'all' ? orders : orders.filter((o: any) => o.status === status)
+                    await Promise.all(toDelete.map((o: any) => client.delete(o._id)))
+                    setOrders(status === 'all' ? [] : orders.filter((o: any) => o.status !== status))
+                    showMsg(`🗑️ ${label} cleared.`)
+                  }}
                 />
               )}
 
@@ -471,7 +479,7 @@ function OrderModal({ order, products, onClose, onSave }: any) {
   )
 }
 
-function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, onClearArchived, onDeleteOrder }: any) {
+function OrdersTab({ orders, onNewOrder, onEditOrder, onStatusChange, onDeleteOrder, onClearByStatus }: any) {
   const [page, setPage] = useState(1)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSource, setFilterSource] = useState('all')
@@ -573,7 +581,15 @@ function OrdersTab({ orders, products, onNewOrder, onEditOrder, onStatusChange, 
           <option value="month">This Month</option>
           <option value="custom">📅 Custom</option>
         </select>
-        <button onClick={onClearArchived} style={{ padding: '0.6rem 1rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer' }}>🗑️ Clear Cancelled</button>
+        <select onChange={e => { if (e.target.value) { onClearByStatus(e.target.value); e.target.value = '' } }}
+          style={{ padding: '0.6rem 1rem', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: '0.5rem', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+          <option value=''>🗑️ Clear...</option>
+          <option value='all'>Clear All</option>
+          <option value='cancelled'>Clear Cancelled</option>
+          <option value='confirmed'>Clear Confirmed</option>
+          <option value='refunded'>Clear Refunded</option>
+          <option value='pending'>Clear Pending</option>
+        </select>
       </div>
 
       {filterDate === 'custom' && (
