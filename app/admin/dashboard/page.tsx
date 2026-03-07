@@ -795,6 +795,71 @@ function AccountingTab({ orders }: any) {
   )
 }
 
+function ProductModal({ product, categories, onClose, onSave }: any) {
+  const [form, setForm] = useState({ ...product })
+  const f = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div style={{ background: '#141414', border: '1px solid rgba(201,146,42,0.2)', borderRadius: '1.5rem', padding: '2rem', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.4rem', fontWeight: 400, margin: 0 }}>{form._id === 'new' ? 'Add Product' : 'Edit Product'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,240,232,0.4)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+        </div>
+        {[
+          { key: 'name', label: 'Product Name *' },
+          { key: 'description', label: 'Description *', multiline: true },
+          { key: 'price', label: 'Price (USD) *', type: 'number' },
+          { key: 'badge', label: 'Badge (optional — e.g. New, Popular)' },
+        ].map((field: any) => (
+          <div key={field.key} style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>{field.label}</label>
+            {field.multiline ? (
+              <textarea value={form[field.key] || ''} onChange={e => f(field.key, e.target.value)} rows={3}
+                style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+            ) : (
+              <input type={field.type || 'text'} value={form[field.key] || ''} onChange={e => f(field.key, e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+            )}
+          </div>
+        ))}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Product Image *</label>
+          <input type="file" accept="image/*" onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            const asset = await client.assets.upload('image', file, { filename: file.name })
+            f('imageAssetId', asset._id)
+            f('imagePreview', URL.createObjectURL(file))
+          }}
+            style={{ width: '100%', padding: '0.75rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box' }} />
+          {form.imagePreview && (
+            <img src={form.imagePreview} alt="Preview" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
+          )}
+          {form.image && !form.imagePreview && (
+            <img src={form.image} alt="Current" style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem' }} />
+          )}
+        </div>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.7rem', color: 'rgba(245,240,232,0.4)', marginBottom: '0.4rem' }}>Category *</label>
+          <select value={form.categoryId || ''} onChange={e => f('categoryId', e.target.value)}
+            style={{ width: '100%', padding: '0.75rem', background: '#1a1a1a', border: '1px solid rgba(201,146,42,0.15)', borderRadius: '0.5rem', color: '#f5f0e8', fontSize: '0.85rem', fontFamily: 'Outfit, sans-serif' }}>
+            {categories.map((c: any) => <option key={c._id} value={c._id}>{c.emoji} {c.name}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <input type="checkbox" id="available" checked={form.available} onChange={e => f('available', e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#c9922a' }} />
+          <label htmlFor="available" style={{ fontSize: '0.85rem', color: 'rgba(245,240,232,0.6)', cursor: 'pointer' }}>Visible on website</label>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'rgba(245,240,232,0.5)', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Cancel</button>
+          <button onClick={() => onSave(form)} style={{ flex: 2, padding: '0.75rem', background: 'linear-gradient(135deg,#a87020,#e4af2e)', border: 'none', borderRadius: '0.75rem', color: '#0a0a0a', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Save Product</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function NotesTab({ notes, orders, onSaveNote, onDeleteNote, onClearNotes }: any) {
   const [content, setContent] = useState('')
   const [filterDate, setFilterDate] = useState('all')
